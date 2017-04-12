@@ -1,0 +1,2 @@
+napsat nástroj pro konverzi výstupu Morfessoru do tohoto formátu
+napsat evaluační a statistické nástroje které tenhle formát žerou
