@@ -1,6 +1,8 @@
 .PHONY: all clean
+
 # Never ever remove any intermediate files.
 .PRECIOUS:
+.SECONDARY:
 
 MORFESSOR_MODEL::=morfessor-model
 
