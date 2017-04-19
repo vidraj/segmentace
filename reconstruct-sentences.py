@@ -19,8 +19,15 @@ with open(segments_file_name, "rt") as segments_file:
 		
 		words_to_segments[word] = morphs
 
+def segment_word(word, database=words_to_segments):
+	if word in words_to_segments:
+		return words_to_segments[word]
+	else:
+		return word
+
+
 for sentence in sys.stdin:
 	words = sentence.rstrip().split(" ")
-	segmented_words = [" ".join(words_to_segments[word]) for word in words]
+	segmented_words = [" ".join(segment_word(word)) for word in words]
 	segmented_sentence = " ◽ ".join(segmented_words)
 	print(segmented_sentence)
