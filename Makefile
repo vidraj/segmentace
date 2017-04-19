@@ -4,18 +4,23 @@
 
 MORFESSOR_MODEL::=morfessor-model
 
+DATA_SOURCE::=wmt17-nmt-training-task-package/README
+
+TRAIN_CORPUS-cs::=wmt17-nmt-training-task-package/train.cs.gz
+TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
+
 all: output-segmented-cs.txt output-segmented-en.txt
 
 # Run Morfessor on the input, save a mapping from words to segments.
-segments-%.txt: $(MORFESSOR_MODEL)-%.bin wmt17-nmt-training-task-package/README
+segments-%.txt: $(MORFESSOR_MODEL)-%.bin $(DATA_SOURCE)
 	# TODO strip all punctuation and uninteresting words from the input.
-	gunzip -ckv "wmt17-nmt-training-task-package/train.$*.gz" | sed -e 's/ /\n/g' | sort -u | morfessor -l "$<" -T - --logfile "morfessor-predict-$*-log.txt" > "$@"
+	gunzip -ckv $(TRAIN_CORPUS-$*) | sed -e 's/ /\n/g' | sort -u | morfessor -l "$<" -T - --logfile "morfessor-predict-$*-log.txt" > "$@"
 
-morfessor-model-%.bin: wmt17-nmt-training-task-package/README
-	morfessor -t "wmt17-nmt-training-task-package/train.$*.gz" -s "$@" -x "lexicon-$*.txt" --logfile "morfessor-train-$*-log.txt"
+morfessor-model-%.bin: $(DATA_SOURCE)
+	morfessor -t $(TRAIN_CORPUS-$*) -s "$@" -x "lexicon-$*.txt" --logfile "morfessor-train-$*-log.txt"
 
-output-segmented-%.txt: segments-%.txt wmt17-nmt-training-task-package/README
-	gunzip -ckv "wmt17-nmt-training-task-package/train.$*.gz" | ./reconstruct-sentences.py "$<" > "$@"
+output-segmented-%.txt: segments-%.txt $(DATA_SOURCE)
+	gunzip -ckv $(TRAIN_CORPUS-$*) | ./reconstruct-sentences.py "$<" > "$@"
 
 wmt17-nmt-training-task-package.tgz:
 	wget -O "$@" 'http://data.statmt.org/wmt17/nmt-training-task/wmt17-nmt-training-task-package.tgz'
