@@ -16,8 +16,6 @@ from collections import defaultdict, Counter
 
 from time import strftime
 
-from ufal.morphodita import Morpho, TaggedLemmas
-
 
 parser = argparse.ArgumentParser(description="Extract possible segmentations from dictionaries of derivations and inflections.")
 parser.add_argument("derinet", metavar="DERINET.tsv.gz", help="A path to the compressed DeriNet dictionary.")
@@ -468,11 +466,17 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 	
 	if morpho_file_name is not None:
 		perr("Loading morphology")
-		morpho = Morpho.load(morpho_file_name)
-		lemmas = TaggedLemmas()
-		if not morpho:
-			perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
-			sys.exit(1)
+		morpho = None
+		try:
+			from ufal.morphodita import Morpho, TaggedLemmas
+			morpho = Morpho.load(morpho_file_name)
+			lemmas = TaggedLemmas()
+		except ImportError:
+			perr("You need to install the MorphoDiTa Python bindings!")
+		finally:
+			if not morpho:
+				perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
+				sys.exit(1)
 		perr("Morphology loaded at %s" % strftime("%c"))
 	else:
 		perr("No morphological dictionary specified. Inflectional morphology will not be available.")
