@@ -17,12 +17,12 @@ from collections import defaultdict, Counter
 from time import strftime
 
 
-parser = argparse.ArgumentParser(description="Extract possible segmentations from dictionaries of derivations and inflections.")
-parser.add_argument("derinet", metavar="DERINET.tsv.gz", help="A path to the compressed DeriNet dictionary.")
-#parser.add_argument("morfflex", metavar="MORFFLEX.tab.csv.xz", help="A path to the compressed MorfFlex dictionary.")
-parser.add_argument("-m", "--morfflex", help="A path to the compressed MorfFlex dictionary.")
-parser.add_argument("-a", "--analyzer", help="A path to the MorphoDiTa morphological analyzer data.")
-#parser.add_argument("morpho", metavar="MORPHO", help="A path to the MorphoDiTa morphological resource.")
+parser = argparse.ArgumentParser(description="Extract possible segmentations from dictionaries of derivations and inflections.", epilog="By default, only lemmas from DeriNet are loaded. Since segmentation of lemmas only is too limited for most applications, you can optionally enable support for segmenting inflected forms by using the --analyzer or --morfflex options. Loading MorfFlex produces the most detailed segmentation, but it is very memory intensive. Using the MorphoDiTa analyzer is cheaper, but requires you to install the 'ufal.morphodita' package prom PyPI and doesn't segment all forms reliably.")
+parser.add_argument("derinet", metavar="DERINET.tsv.gz", help="a path to the compressed DeriNet dictionary.")
+#parser.add_argument("morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary.")
+parser.add_argument("-a", "--analyzer", metavar="DICTIONARY.dict", help="a path to the MorphoDiTa morphological analyzer data. When used, will lemmatize the input data before segmenting, thus supporting segmentation of inflected forms.")
+parser.add_argument("-m", "--morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary. When used, will enrich the dictionary with forms in addition to lemmas, thus supporting segmentation of inflected forms. Beware, this makes the program very memory intensive.")
+#parser.add_argument("morpho", metavar="MORPHO", help="a path to the MorphoDiTa morphological resource.")
 args = parser.parse_args()
 
 def perr(*args, **kwargs):
