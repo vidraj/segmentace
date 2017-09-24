@@ -8,7 +8,7 @@ We want to explore machine translation text preprocessing options and pass NPFL0
 
 ## Installation
 
-1. Install the Python MorphoDiTa bindings (ufal.morphodita package) from PyPI. Typically, you'd do this by typing `pip install --user ufal.morphodita` into your terminal.
+1. Install the Python MorphoDiTa bindings (ufal.morphodita package) from PyPI. Typically, you'd do this by typing `pip3 install --user ufal.morphodita` into your terminal.
 2. Then, type `make download` to fetch the necessary models and data. It downloads MorphoDiTa 2016.11 models into czech-morfflex-pdt-161115/ and DeriNet 1.4 to derinet-1-4.tsv.gz
 
 ## Usage
