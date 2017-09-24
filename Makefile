@@ -6,9 +6,10 @@
 
 MORFESSOR_MODEL::=morfessor-model
 
-DATA_SOURCE::=wmt17-nmt-training-task-package/README
+DATA_SOURCE::=wmt17-nmt-training-task-package/README wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
 
 TRAIN_CORPUS-cs::=wmt17-nmt-training-task-package/train.cs.gz
+TRAIN_CORPUS-cs-iso::=wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
 TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 
 # all: output-segmented-morfessor-cs.txt output-segmented-morfessor-en.txt # output-segmented-affisix-cs-iso.txt
@@ -37,6 +38,10 @@ wmt17-nmt-training-task-package.tgz:
 
 wmt17-nmt-training-task-package/README: wmt17-nmt-training-task-package.tgz
 	tar -xvf "$<"
+
+wmt17-nmt-training-task-package/train.cs.iso8859-2.txt: wmt17-nmt-training-task-package/train.cs.gz
+	zcat "$<" | sed -e 's/ /\n/g' | grep -v '[^[:alpha:]]' | iconv -f UTF-8 -t ISO-8859-2//TRANSLIT | LC_CTYPE=C grep -v "[?^']" > "$@"
+
 
 
 czech-morfflex-pdt-161115.zip:
