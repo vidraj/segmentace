@@ -18,7 +18,7 @@ all: segments-derinet-cs.txt
 download: czech-morfflex-pdt-161115/README derinet-1-4.tsv.gz
 
 # Run Morfessor on the input, save a mapping from words to segments.
-segments-morfessor-%.txt: $(MORFESSOR_MODEL)-%.bin $(DATA_SOURCE)
+morfessor-vocab-%.txt: $(MORFESSOR_MODEL)-%.bin $(DATA_SOURCE)
 	# TODO strip all punctuation and uninteresting words from the input.
 	ulimit -t unlimited && zcat $(TRAIN_CORPUS-$*) | sed -e 's/ /\n/g' | sort -u | nice -n 19 morfessor -l "$<" -T - --logfile "morfessor-predict-$*-log.txt" > "$@"
 
@@ -30,7 +30,7 @@ segments-affisix-%.txt: $(DATA_SOURCE)
 morfessor-model-%.bin: $(DATA_SOURCE)
 	ulimit -t unlimited && nice -n 19 morfessor -t $(TRAIN_CORPUS-$*) -s "$@" -x "lexicon-$*.txt" --logfile "morfessor-train-$*-log.txt"
 
-output-segmented-%.txt: segments-%.txt $(DATA_SOURCE)
+segments-morfessor-%.txt: morfessor-vocab-%.txt $(DATA_SOURCE)
 	zcat $(TRAIN_CORPUS-$*) | ./reconstruct-sentences.py "$<" > "$@"
 
 wmt17-nmt-training-task-package.tgz:
