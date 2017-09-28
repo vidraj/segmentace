@@ -94,5 +94,8 @@ stats-corpus-%.txt: $(DATA_SOURCE)
 
 clean:
 # 	rm -rf wmt17-nmt-training-task-package wmt17-nmt-training-task-package.tgz
-	rm -f morfessor-model-*.bin segments-*.txt output-segmented-*.txt lexicon-*.txt morfessor-*-log.txt
-
+# 	rm -f derinet-1-4.tsv.gz
+# 	rm -rf czech-morfflex-pdt-161115/
+	rm -f morfessor-model-*.bin segments-*.txt lexicon-*.txt morfessor-*-log.txt
+	rm -f bpe-vocab-*.txt morfessor-vocab-*.txt
+	rm -f stats-*.txt
