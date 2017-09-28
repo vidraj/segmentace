@@ -16,6 +16,8 @@ from collections import defaultdict, Counter
 
 from time import strftime
 
+from segmentshandler import SegmentedLoader
+
 
 parser = argparse.ArgumentParser(description="Extract possible segmentations from dictionaries of derivations and inflections.", epilog="By default, only lemmas from DeriNet are loaded. Since segmentation of lemmas only is too limited for most applications, you can optionally enable support for segmenting inflected forms by using the --analyzer or --morfflex options. Loading MorfFlex produces the most detailed segmentation, but it is very memory intensive. Using the MorphoDiTa analyzer is cheaper, but requires you to install the 'ufal.morphodita' package prom PyPI and doesn't segment all forms reliably.")
 parser.add_argument("derinet", metavar="DERINET.tsv.gz", help="a path to the compressed DeriNet dictionary.")
@@ -517,39 +519,41 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 		#print("%s\t%d" % (morph, count))
 	
 	# TODO process STDIN and print divided morphs.
-	for word in sys.stdin:
-		word = word.rstrip("\r\n")
-		node = None
-		parent_node = None
-		
-		# First, try to find the word in the database.
-		nodes = db.get_by_lemma(word)
-		if nodes:
-			node = nodes[0]
-		
-		if not node and morpho:
-			# If it's not there, try to analyze it as inflectional and try to find its lemma there.
-			guesser_used = morpho.analyze(word, morpho.GUESSER, lemmas)
-			for lemma in lemmas:
-				parent_nodes = db.get_by_lemma(lemma.lemma)
-				if parent_nodes:
-					# The word is not in the database, but its lemma is.
-					# Create a new node for the word and propagate the bounds to it.
-					parent_node = parent_nodes[0]
-					node = Lexeme(word, parent_lemma=lemmas[0].lemma)
-					node.detect_morph_bounds(parent_node)
-					node.copy_morph_bounds(parent_node)
-					break
-				
-				# TODO if neither the form nor its lemma are in the database, add them and detect the bounds between the two.
-		
-		if node:
-			morphs = node.morphs()
-			morphs[:-1] = [morph + "@@" for morph in morphs[:-1]]
-			print("\n".join(morphs))
-		else:
-			# If all else fails, consider the word to be a single morph.
-			print(word)
+	for sentence in SegmentedLoader("spl", filehandle=sys.stdin):
+		for morphs in sentence:
+			
+			word = "".join(morphs)
+			node = None
+			parent_node = None
+			
+			# First, try to find the word in the database.
+			nodes = db.get_by_lemma(word)
+			if nodes:
+				node = nodes[0]
+			
+			if not node and morpho:
+				# If it's not there, try to analyze it as inflectional and try to find its lemma there.
+				guesser_used = morpho.analyze(word, morpho.GUESSER, lemmas)
+				for lemma in lemmas:
+					parent_nodes = db.get_by_lemma(lemma.lemma)
+					if parent_nodes:
+						# The word is not in the database, but its lemma is.
+						# Create a new node for the word and propagate the bounds to it.
+						parent_node = parent_nodes[0]
+						node = Lexeme(word, parent_lemma=lemmas[0].lemma)
+						node.detect_morph_bounds(parent_node)
+						node.copy_morph_bounds(parent_node)
+						break
+					
+					# TODO if neither the form nor its lemma are in the database, add them and detect the bounds between the two.
+			
+			if node:
+				morphs = node.morphs()
+				morphs[:-1] = [morph + "@@" for morph in morphs[:-1]]
+				print("\n".join(morphs))
+			else:
+				# If all else fails, consider the word to be a single morph.
+				print(word)
 	
 	#perr(Lexeme.morph_change_types)
 
