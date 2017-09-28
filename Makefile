@@ -12,8 +12,11 @@ TRAIN_CORPUS-cs::=wmt17-nmt-training-task-package/train.cs.gz
 TRAIN_CORPUS-cs-iso::=wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
 TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 
-# all: output-segmented-morfessor-cs.txt output-segmented-morfessor-en.txt # output-segmented-affisix-cs-iso.txt
-all: segments-derinet-cs.txt
+all: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
+all: stats-derinet-morphodita-cs.txt
+all: stats-bpe-1000-cs.txt stats-bpe-30000-cs.txt stats-bpe-50000-cs.txt stats-bpe-85000-cs.txt
+all: stats-bpe-1000-en.txt stats-bpe-30000-en.txt stats-bpe-50000-en.txt stats-bpe-85000-en.txt
+all: stats-corpus-cs.txt stats-corpus-en.txt
 
 download: czech-morfflex-pdt-161115/README derinet-1-4.tsv.gz
 
