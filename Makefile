@@ -53,8 +53,17 @@ czech-morfflex-pdt-161115/README: czech-morfflex-pdt-161115.zip
 derinet-1-4.tsv.gz:
 	wget -O "$@" 'https://www.jonys.cz/derinet/search/derinet-1-4.tsv.gz'
 
-segments-derinet-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz czech-morfflex-pdt-161115/README
-	 zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -a czech-morfflex-pdt-161115/czech-morfflex-161115-pos_only.dict > "$@"
+	
+segments-derinet-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz
+	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz > "$@"
+
+segments-derinet-morphodita-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz czech-morfflex-pdt-161115/README
+	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -a czech-morfflex-pdt-161115/czech-morfflex-161115-pos_only.dict > "$@"
+
+segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
+	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
+
+
 
 clean:
 # 	rm -rf wmt17-nmt-training-task-package wmt17-nmt-training-task-package.tgz
