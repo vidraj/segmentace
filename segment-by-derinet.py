@@ -87,14 +87,35 @@ class Lexeme:
 	
 	allowed_morph_change_types = {"padd", "sadd", "scha", "conv"}
 	
-	def __init__(self, lemma, id=None, parent_id=None, parent_lemma=None):
+	def __init__(self, lemma=None, morphs=None, id=None, parent_id=None, parent_lemma=None):
 		self.id = int(id) if id else None
-		self.lemma = lemma
+		
+		
+		morph_bounds = {0, len(lemma)}
+		if lemma is not None and morphs is None:
+			self.lemma = lemma
+		elif morphs is not None:
+			joined_lemma = "".join(morphs)
+			if lemma is None or lemma == joined_lemma:
+				self.lemma = joined_lemma
+				
+				given_bounds = []
+				last_given_bound = 0
+				for morph in morphs:
+					last_given_bound += len(morph)
+					given_bounds.append(last_given_bound)
+				
+				morph_bounds = morph_bounds.union(given_bounds)
+			else:
+				raise ValueError("The provided lemma '%s' doesn't match the morphs '%s'" % (lemma, joined_lemma))
+		else:
+			raise ValueError("You must provide at least one of {lemma, morphs}")
+		
 		self.parent_id = int(parent_id) if parent_id else None
 		self.parent_lemma = parent_lemma # TODO if both parent_id and parent_lemma are filled in, cross-check their information so that it fits.
 		self.parent = None
 		self.children = []
-		self.morph_bounds = {0, len(lemma)} # A set of morph boundaries in lemma. Each boundary is an int: an offset where a new morph starts in lemma.
+		self.morph_bounds = morph_bounds # A set of morph boundaries in lemma. Each boundary is an int: an offset where a new morph starts in lemma.
 		self.morph_change_type = None # One of the keys on morph_change_types, documenting the type of morph change present when going from parent to self.
 		self.root_map = None # A hash with keys "self", "parent", each with a tuple with (start, end) of the common root (longest common substring) in lemma.
 	
