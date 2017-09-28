@@ -43,6 +43,20 @@ wmt17-nmt-training-task-package/train.cs.iso8859-2.txt: wmt17-nmt-training-task-
 	zcat "$<" | sed -e 's/ /\n/g' | grep -v '[^[:alpha:]]' | iconv -f UTF-8 -t ISO-8859-2//TRANSLIT | LC_CTYPE=C grep -v "[?^']" > "$@"
 
 
+bpe/learn_bpe.py:
+	git clone 'https://github.com/rsennrich/subword-nmt.git' 'bpe'
+
+bpe-vocab-%-cs.txt: bpe/learn_bpe.py $(DATA_SOURCE)
+	zcat $(TRAIN_CORPUS-cs) | ./bpe/learn_bpe.py -s "$*" > "$@"
+segments-bpe-%-cs.txt: bpe-vocab-%-cs.txt bpe/learn_bpe.py $(DATA_SOURCE)
+	zcat $(TRAIN_CORPUS-cs) | ./bpe/apply_bpe.py -c "$<" > "$@"
+
+bpe-vocab-%-en.txt: bpe/learn_bpe.py $(DATA_SOURCE)
+	zcat $(TRAIN_CORPUS-en) | ./bpe/learn_bpe.py -s "$*" > "$@"
+segments-bpe-%-en.txt: bpe-vocab-%-en.txt bpe/learn_bpe.py $(DATA_SOURCE)
+	zcat $(TRAIN_CORPUS-en) | ./bpe/apply_bpe.py -c "$<" > "$@"
+
+
 
 czech-morfflex-pdt-161115.zip:
 	wget -O "$@" 'https://lindat.mff.cuni.cz/repository/xmlui/bitstream/handle/11234/1-1836/czech-morfflex-pdt-161115.zip?sequence=1&isAllowed=y'
