@@ -1,9 +1,9 @@
 ## Synopsis
 
 This repository contains several tools for segmenting word-segmented text into subword units and a statistics collection module that generates reports about their functionality. Currently, we test three systems:
-- [https://github.com/rsennrich/subword-nmt](Byte-Pair Encoding) as per Sennrich et al., 2015 (Neural Machine Translation of Rare Words with Subword Units)
-- [http://morpho.aalto.fi/projects/morpho/morfessor2.html](Morfessor 2.0) by Sami Virpioja et al., 2013 (Morfessor 2.0: Python Implementation and Extensions for Morfessor Baseline)
-- [https://ufal.mff.cuni.cz/derinet](DeriNet) and [https://ufal.mff.cuni.cz/morphodita](MorphoDita) guided segmentation, developed by us and implemented in `segment-by-derinet.py` (see below).
+- [Byte-Pair Encoding](https://github.com/rsennrich/subword-nmt) as per Sennrich et al., 2015 (Neural Machine Translation of Rare Words with Subword Units)
+- [Morfessor 2.0](http://morpho.aalto.fi/projects/morpho/morfessor2.html) by Sami Virpioja et al., 2013 (Morfessor 2.0: Python Implementation and Extensions for Morfessor Baseline)
+- [DeriNet](https://ufal.mff.cuni.cz/derinet) and [MorphoDita](https://ufal.mff.cuni.cz/morphodita) guided segmentation, developed by us and implemented in `segment-by-derinet.py` (see below).
 
 ## Motivation
 
