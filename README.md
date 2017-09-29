@@ -1,6 +1,9 @@
 ## Synopsis
 
-This repository contains several tools for segmenting word-segmented text into subword units. Currently, the only fully-working script is `segment-by-derinet.py` (see below).
+This repository contains several tools for segmenting word-segmented text into subword units and a statistics collection module that generates reports about their functionality. Currently, we test three systems:
+- [https://github.com/rsennrich/subword-nmt](Byte-Pair Encoding) as per Sennrich et al., 2015 (Neural Machine Translation of Rare Words with Subword Units)
+- [http://morpho.aalto.fi/projects/morpho/morfessor2.html](Morfessor 2.0) by Sami Virpioja et al., 2013 (Morfessor 2.0: Python Implementation and Extensions for Morfessor Baseline)
+- [https://ufal.mff.cuni.cz/derinet](DeriNet) and [https://ufal.mff.cuni.cz/morphodita](MorphoDita) guided segmentation, developed by us and implemented in `segment-by-derinet.py` (see below).
 
 ## Motivation
 
@@ -9,7 +12,9 @@ We want to explore machine translation text preprocessing options and pass NPFL0
 ## Installation
 
 1. Install the Python MorphoDiTa bindings (ufal.morphodita package) from PyPI. Typically, you'd do this by typing `pip3 install --user ufal.morphodita` into your terminal.
-2. Then, type `make download` to fetch the necessary models and data. It downloads MorphoDiTa 2016.11 models into czech-morfflex-pdt-161115/ and DeriNet 1.4 to derinet-1-4.tsv.gz
+2. Install Morfessor 2.0 (Morfessor package) from PyPI. Type `pip3 install --user Morfessor`.
+3. Optionally, type `make download` to fetch the necessary models and data. It downloads MorphoDiTa 2016.11 models into czech-morfflex-pdt-161115/ and DeriNet 1.4 to derinet-1-4.tsv.gz. You can then play with the tools yourself.
+4. Or, proceed the automatized way by simply typing `make -rj8` (subsitute your own preferred thread count for 8). This downlads the data, runs the models on the WMT17 NMT training dataset and produces files `segments-*.txt` with the segmented texts and `stats-*.txt` with the measured statistics.
 
 ## Usage
 
