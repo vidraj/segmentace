@@ -12,7 +12,7 @@ TRAIN_CORPUS-cs::=wmt17-nmt-training-task-package/train.cs.gz
 TRAIN_CORPUS-cs-iso::=wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
 TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 
-MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-161115-pos_only.dict
+MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tagger
 
 all: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
 all: stats-derinet-morphodita-cs.txt

@@ -489,21 +489,23 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 	
 	if morpho_file_name is not None:
 		perr("Loading morphology")
-		morpho = None
+		tagger = None
 		try:
-			from ufal.morphodita import Morpho, TaggedLemmas
-			morpho = Morpho.load(morpho_file_name)
+			from ufal.morphodita import Tagger, TaggedLemmas
+			tagger = Tagger.load(morpho_file_name)
 			lemmas = TaggedLemmas()
 		except ImportError:
 			perr("You need to install the MorphoDiTa Python bindings!")
 		finally:
-			if not morpho:
+			if not tagger:
 				perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
 				sys.exit(1)
 		perr("Morphology loaded at %s" % strftime("%c"))
 	else:
 		perr("No morphological dictionary specified. Inflectional morphology will not be available.")
-		morpho = None
+		tagger = None
+		lemmas = []
+		
 	
 	perr("Splitting STDIN.")
 	
@@ -520,9 +522,12 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 	
 	# TODO process STDIN and print divided morphs.
 	for sentence in SegmentedLoader("spl", filehandle=sys.stdin):
-		for morphs in sentence:
-			
-			word = "".join(morphs)
+		words = ["".join(morphs) for morphs in sentence]
+		
+		if tagger is not None:
+			tagger.tag(words, lemmas)
+		
+		for word, analysis in itertools.zip_longest(words, lemmas):
 			node = None
 			parent_node = None
 			
@@ -530,22 +535,17 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 			nodes = db.get_by_lemma(word)
 			if nodes:
 				node = nodes[0]
-			
-			if not node and morpho:
-				# If it's not there, try to analyze it as inflectional and try to find its lemma there.
-				guesser_used = morpho.analyze(word, morpho.GUESSER, lemmas)
-				for lemma in lemmas:
-					parent_nodes = db.get_by_lemma(lemma.lemma)
-					if parent_nodes:
-						# The word is not in the database, but its lemma is.
-						# Create a new node for the word and propagate the bounds to it.
-						parent_node = parent_nodes[0]
-						node = Lexeme(word, parent_lemma=lemmas[0].lemma)
-						node.detect_morph_bounds(parent_node)
-						node.copy_morph_bounds(parent_node)
-						break
-					
-					# TODO if neither the form nor its lemma are in the database, add them and detect the bounds between the two.
+			elif analysis is not None:
+				# If the word is not in the database itself, try to find its lemma there.
+				lemma = techlemma_to_lemma(analysis.lemma)
+				parent_nodes = db.get_by_lemma(lemma)
+				if parent_nodes:
+					# The word is not in the database, but its lemma is.
+					# Create a new node for the word and propagate the bounds to it.
+					parent_node = parent_nodes[0]
+					node = Lexeme(word, parent_lemma=lemma)
+					node.detect_morph_bounds(parent_node)
+					node.copy_morph_bounds(parent_node)
 			
 			if node:
 				morphs = node.morphs()
