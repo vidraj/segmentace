@@ -12,6 +12,8 @@ TRAIN_CORPUS-cs::=wmt17-nmt-training-task-package/train.cs.gz
 TRAIN_CORPUS-cs-iso::=wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
 TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 
+MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-161115-pos_only.dict
+
 all: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
 all: stats-derinet-morphodita-cs.txt
 all: stats-bpe-1000-cs.txt stats-bpe-30000-cs.txt stats-bpe-50000-cs.txt stats-bpe-85000-cs.txt
@@ -75,7 +77,7 @@ segments-derinet-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz
 	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz > "$@"
 
 segments-derinet-morphodita-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz czech-morfflex-pdt-161115/README
-	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -a czech-morfflex-pdt-161115/czech-morfflex-161115-pos_only.dict > "$@"
+	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -a "$(MORPHO_TAGGER)" > "$@"
 
 segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
 	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
