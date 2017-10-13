@@ -19,10 +19,10 @@ from time import strftime
 from segmentshandler import SegmentedLoader
 
 
-parser = argparse.ArgumentParser(description="Extract possible segmentations from dictionaries of derivations and inflections.", epilog="By default, only lemmas from DeriNet are loaded. Since segmentation of lemmas only is too limited for most applications, you can optionally enable support for segmenting inflected forms by using the --analyzer or --morfflex options. Loading MorfFlex produces the most detailed segmentation, but it is very memory intensive. Using the MorphoDiTa analyzer is cheaper, but requires you to install the 'ufal.morphodita' package prom PyPI and doesn't segment all forms reliably.")
+parser = argparse.ArgumentParser(description="Extract possible segmentations from dictionaries of derivations and inflections and segment corpora from STDIN.", epilog="By default, only lemmas from DeriNet are loaded. Since segmentation of lemmas only is too limited for most applications, you can optionally enable support for segmenting inflected forms by using the --analyzer or --morfflex options. Loading MorfFlex produces the most detailed segmentation, but it is very memory intensive. Using the MorphoDiTa analyzer is cheaper, but requires you to install the 'ufal.morphodita' package prom PyPI and doesn't segment all forms reliably.\n\nThe input should be in a “word per line, sentences separated by an empty line” format.")
 parser.add_argument("derinet", metavar="DERINET.tsv.gz", help="a path to the compressed DeriNet dictionary.")
 #parser.add_argument("morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary.")
-parser.add_argument("-a", "--analyzer", metavar="DICTIONARY.dict", help="a path to the MorphoDiTa morphological analyzer data. When used, will lemmatize the input data before segmenting, thus supporting segmentation of inflected forms.")
+parser.add_argument("-a", "--analyzer", metavar="DICTIONARY.tagger", help="a path to the MorphoDiTa tagger data. When used, will lemmatize the input data before segmenting, thus supporting segmentation of inflected forms.")
 parser.add_argument("-m", "--morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary. When used, will enrich the dictionary with forms in addition to lemmas, thus supporting segmentation of inflected forms. Beware, this makes the program very memory intensive.")
 #parser.add_argument("morpho", metavar="MORPHO", help="a path to the MorphoDiTa morphological resource.")
 args = parser.parse_args()
@@ -72,6 +72,7 @@ def pairs(l):
 		yield (l[lower], l[lower + 1])
 
 def techlemma_to_lemma(techlemma):
+	"""Cut off the technical suffixes from the string techlemma and return the raw lemma"""
 	shortlemma = re.sub("[_`].+", "", techlemma)
 	lemma = re.sub("-\d+$", "", shortlemma)
 	return lemma

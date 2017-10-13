@@ -20,7 +20,7 @@ We want to explore machine translation text preprocessing options and pass NPFL0
 
 ```shell-session
 $ ./segment-by-derinet.py --help
-usage: segment-by-derinet.py [-h] [-a DICTIONARY.dict]
+usage: segment-by-derinet.py [-h] [-a DICTIONARY.tagger]
                              [-m MORFFLEX.tab.csv.xz]
                              DERINET.tsv.gz
 
@@ -32,8 +32,8 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -a DICTIONARY.dict, --analyzer DICTIONARY.dict
-                        a path to the MorphoDiTa morphological analyzer data.
+  -a DICTIONARY.tagger, --analyzer DICTIONARY.tagger
+                        a path to the MorphoDiTa tagger data.
                         When used, will lemmatize the input data before
                         segmenting, thus supporting segmentation of inflected
                         forms.
@@ -58,7 +58,7 @@ forms reliably.
 
 ```shell-session
 $ echo -e 'Ahoj\nsvěte\n!\n\nNáš\nzačátek\nbyl\npomalejší\n,\nlitoval\npo\nprohře\nBerdych\n.' | \
-> ./segment-by-derinet.py derinet-1-4.tsv.gz -a czech-morfflex-pdt-161115/czech-morfflex-161115-pos_only.dict
+> ./segment-by-derinet.py derinet-1-4.tsv.gz -a czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tagger
 Ahoj
 svět@@
 e
@@ -73,7 +73,10 @@ yl
 pomal@@
 ejší
 ,
-litoval
+lit@@
+ov@@
+a@@
+l
 po
 proh@@
 ře
