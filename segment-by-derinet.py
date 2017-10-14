@@ -79,14 +79,14 @@ def techlemma_to_lemma(techlemma):
 
 class Lexeme:
 	# Types of morpheme changes encountered in the data and their frequencies.
-	morph_change_types = {"padd": 0,
-	                      "prem": 0,
-	                      "pcha": 0,
-	                      "sadd": 0,
-	                      "srem": 0,
-	                      "scha": 0,
-	                      "conv": 0,
-	                      "circ": 0}
+	morph_change_types = {"padd": 0, # Prefix addition
+	                      "prem": 0, # Prefix removal
+	                      "pcha": 0, # Prefix substitution
+	                      "sadd": 0, # Suffix addition
+	                      "srem": 0, # Suffix removal
+	                      "scha": 0, # Suffix substitution
+	                      "conv": 0, # Conversion (no change)
+	                      "circ": 0} # Circumfixation (or weird change on both sides)
 	
 	allowed_morph_change_types = {"padd", "sadd", "scha", "conv"}
 	
