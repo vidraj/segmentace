@@ -19,6 +19,16 @@ from time import strftime
 from segmentshandler import SegmentedLoader, SegmentedStorer
 
 
+# Load MorphoDiTa if available, otherwise fail silently.
+# MorphoDiTa availability must be tested anywhere it is used in the program!
+morphodita_available = False
+try:
+	from ufal.morphodita import Tagger, TaggedLemmas
+	morphodita_available = True
+except ImportError:
+	pass
+
+
 parser = argparse.ArgumentParser(description="Extract possible segmentations from dictionaries of derivations and inflections and segment corpora from STDIN.", epilog="By default, only lemmas from DeriNet are loaded. Since segmentation of lemmas only is too limited for most applications, you can optionally enable support for segmenting inflected forms by using the --analyzer or --morfflex options. Loading MorfFlex produces the most detailed segmentation, but it is very memory intensive. Using the MorphoDiTa analyzer is cheaper, but requires you to install the 'ufal.morphodita' package prom PyPI and doesn't segment all forms reliably.\n\nThe input should be in a “word per line, sentences separated by an empty line” format.")
 parser.add_argument("derinet", metavar="DERINET.tsv.gz", help="a path to the compressed DeriNet dictionary.")
 #parser.add_argument("morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary.")
@@ -458,7 +468,7 @@ class MorfFlexDatabase:
 				yield lexeme
 		
 
-def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
+def initialize_segmenters(derinet_file_name, morfflex_file_name, morpho_file_name):
 	perr("Loading derivations.")
 	with DeriNetParser(derinet_file_name) as derinet:
 		#for lexeme in itertools.islice(derinet, 10):
@@ -491,24 +501,23 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 	if morpho_file_name is not None:
 		perr("Loading morphology")
 		tagger = None
-		try:
-			from ufal.morphodita import Tagger, TaggedLemmas
+		if morphodita_available:
 			tagger = Tagger.load(morpho_file_name)
-			lemmas = TaggedLemmas()
-		except ImportError:
+		else:
 			perr("You need to install the MorphoDiTa Python bindings!")
-		finally:
-			if not tagger:
-				perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
-				sys.exit(1)
+		
+		if not tagger:
+			perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
+			sys.exit(1)
 		perr("Morphology loaded at %s" % strftime("%c"))
 	else:
 		perr("No morphological dictionary specified. Inflectional morphology will not be available.")
 		tagger = None
-		lemmas = []
-		
 	
-	perr("Splitting STDIN.")
+	return db, tagger
+	
+
+def process_input(loader, storer, db, tagger=None):
 	
 	#morphCounter = Counter()
 	#for node in db.iter():
@@ -521,13 +530,19 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 	#for morph, count in morphCounter.most_common():
 		#print("%s\t%d" % (morph, count))
 	
-	# TODO process STDIN and print divided morphs.
-	storer = SegmentedStorer("vbpe", filehandle=sys.stdout)
-	for input_sentence in SegmentedLoader("spl", filehandle=sys.stdin):
+	
+	# Initialize the MorphoDiTa structures.
+	if morphodita_available:
+		lemmas = TaggedLemmas()
+	else:
+		lemmas = []
+	
+	
+	for input_sentence in loader:
 		words = ["".join(morphs) for morphs in input_sentence]
 		output_sentence = []
 		
-		if tagger is not None:
+		if morphodita_available:
 			tagger.tag(words, lemmas)
 		
 		for word, analysis in itertools.zip_longest(words, lemmas):
@@ -594,5 +609,14 @@ if __name__ == '__main__':
 	derinet_file_name = args.derinet
 	morfflex_file_name = args.morfflex
 	morpho_file_name = args.analyzer
-	process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name)
+	
+	db, tagger = initialize_segmenters(derinet_file_name, morfflex_file_name, morpho_file_name)
+	
+	perr("Ready to split STDIN at %s." % strftime("%c"))
+	
+	loader = SegmentedLoader("spl", filehandle=sys.stdin)
+	storer = SegmentedStorer("vbpe", filehandle=sys.stdout)
+	
+	process_input(loader, storer, db, tagger=tagger)
+	
 	perr("Finished at %s." % strftime("%c"))
