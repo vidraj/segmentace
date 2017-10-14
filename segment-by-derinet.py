@@ -120,7 +120,7 @@ class Lexeme:
 		self.children = []
 		self.morph_bounds = morph_bounds # A set of morph boundaries in lemma. Each boundary is an int: an offset where a new morph starts in lemma.
 		self.morph_change_type = None # One of the keys on morph_change_types, documenting the type of morph change present when going from parent to self.
-		self.root_map = None # A hash with keys "self", "parent", each with a tuple with (start, end) of the common root (longest common substring) in lemma.
+		self.stem_map = None # A hash with keys "self", "parent", each with a tuple with (start, end) of the common stem (longest common substring) in lemma.
 	
 	def to_string(self):
 		if self.id:
@@ -157,7 +157,7 @@ class Lexeme:
 		self.parent = parent
 		parent.children.append(self)
 	
-	def detect_morph_bounds(self, parent=None):
+	def detect_stems(self, parent=None):
 		"""Look at the lemma of self and parent and try to detect any morph changes between the two.
 		If there are any, set the appropriate morph bounds.
 		If parent is None, use self.parent instead."""
@@ -171,47 +171,47 @@ class Lexeme:
 		
 		plemma = parent.lemma
 		slemma = self.lemma
-		common_sublemma_start_parent, common_sublemma_start_self, common_sublemma_length = longest_common_substring_position(plemma.lower(), slemma.lower())
+		stem_start_parent, stem_start_self, stem_length = longest_common_substring_position(plemma.lower(), slemma.lower())
 		
-		bounds_self = (common_sublemma_start_self, common_sublemma_start_self + common_sublemma_length)
-		bounds_parent = (common_sublemma_start_parent, common_sublemma_start_parent + common_sublemma_length)
-		self.root_map = {"self": bounds_self,
+		bounds_self = (stem_start_self, stem_start_self + stem_length)
+		bounds_parent = (stem_start_parent, stem_start_parent + stem_length)
+		self.stem_map = {"self": bounds_self,
 		                 "parent": bounds_parent}
 		
 		
 		# Fill in the morph change type.
-		common_sublemma_end_off_parent = len(plemma) - (common_sublemma_start_parent + common_sublemma_length)
-		common_sublemma_end_off_self = len(slemma) - (common_sublemma_start_self + common_sublemma_length)
+		stem_end_off_parent = len(plemma) - (stem_start_parent + stem_length)
+		stem_end_off_self = len(slemma) - (stem_start_self + stem_length)
 		morph_change_type = None
-		if common_sublemma_start_parent == 0:
+		if stem_start_parent == 0:
 			# PADD / S / CONV
-			if common_sublemma_start_self == 0:
+			if stem_start_self == 0:
 				# S / CONV
-				if common_sublemma_end_off_parent == 0:
+				if stem_end_off_parent == 0:
 					# SADD / CONV
-					if common_sublemma_end_off_self == 0:
+					if stem_end_off_self == 0:
 						morph_change_type = "conv"
 					else:
 						morph_change_type = "sadd"
 				else:
 					# SREM / SCHA
-					if common_sublemma_end_off_self == 0:
+					if stem_end_off_self == 0:
 						morph_change_type = "srem"
 					else:
 						morph_change_type = "scha"
 			else:
-				if common_sublemma_end_off_parent != 0 or common_sublemma_end_off_self != 0:
+				if stem_end_off_parent != 0 or stem_end_off_self != 0:
 					#perr("Circumfixation in %s → %s." % (plemma, slemma))
 					morph_change_type = "circ"
 				else:
 					morph_change_type = "padd"
 		else:
 			# PREM / PCHA
-			if common_sublemma_end_off_parent != 0 or common_sublemma_end_off_self != 0:
+			if stem_end_off_parent != 0 or stem_end_off_self != 0:
 				#perr("Circumfixation in %s → %s." % (plemma, slemma))
 				morph_change_type = "circ"
 			else:
-				if common_sublemma_start_self == 0:
+				if stem_start_self == 0:
 					morph_change_type = "prem"
 				else:
 					morph_change_type = "pcha"
@@ -227,10 +227,10 @@ class Lexeme:
 		#  *|xxx|x →  |xxx|  (suffix removal)
 		#  *anything else?*
 		
-		pprefix, proot, psuffix = divide_string(plemma, common_sublemma_start_parent, common_sublemma_start_parent + common_sublemma_length)
-		psegments = [x for x in (pprefix, proot, psuffix) if x != ""]
-		sprefix, sroot, ssuffix = divide_string(slemma, common_sublemma_start_self, common_sublemma_start_self + common_sublemma_length)
-		ssegments = [x for x in (sprefix, sroot, ssuffix) if x != ""]
+		pprefix, pstem, psuffix = divide_string(plemma, stem_start_parent, stem_start_parent + stem_length)
+		psegments = [x for x in (pprefix, pstem, psuffix) if x != ""]
+		sprefix, sstem, ssuffix = divide_string(slemma, stem_start_self, stem_start_self + stem_length)
+		ssegments = [x for x in (sprefix, sstem, ssuffix) if x != ""]
 		
 		# Write the newly found bounds, unless they are weird.
 		if morph_change_type in Lexeme.allowed_morph_change_types:
@@ -247,18 +247,18 @@ class Lexeme:
 			parent = self.parent
 		
 		if parent is not None:
-			root_bounds_parent = self.root_map['parent']
-			root_bounds_self = self.root_map['self']
+			stem_bounds_parent = self.stem_map['parent']
+			stem_bounds_self = self.stem_map['self']
 			
-			offset = root_bounds_self[0] - root_bounds_parent[0]
-			mapped_self_splits = [split + offset for split in parent.morph_bounds if split > root_bounds_parent[0] and split < root_bounds_parent[1]]
+			offset = stem_bounds_self[0] - stem_bounds_parent[0]
+			mapped_self_splits = [split + offset for split in parent.morph_bounds if split > stem_bounds_parent[0] and split < stem_bounds_parent[1]]
 			
 			self.morph_bounds = self.morph_bounds.union(mapped_self_splits)
 		
 	
 	def propagate_morph_bounds(self):
 		"""Find whether splits of this lemma appear in its children and/or parent as well, and propagate them if neccessary.
-		Call after detecting the morph bounds first.
+		Call after detecting the stem bounds first.
 		Best called on the root of a tree."""
 		
 		# First, go down the tree, towards its leaves.
@@ -273,14 +273,14 @@ class Lexeme:
 		
 		for child in self.children + self.children:
 			child.propagate_morph_bounds()
-			# I have the child's root_map, which documents how the morphs in child map to morphs in self.
-			# All splits in child's root map to splits in self's root.
+			# I have the child's stem_map, which documents how the morphs in child map to morphs in self.
+			# All splits in child's stem map to splits in self's stem.
 			# Other splits don't map.
-			root_bounds_self = child.root_map['parent']
-			root_bounds_child = child.root_map['self']
+			stem_bounds_self = child.stem_map['parent']
+			stem_bounds_child = child.stem_map['self']
 			
-			offset = root_bounds_self[0] - root_bounds_child[0]
-			mapped_child_splits = [split + offset for split in child.morph_bounds if split > root_bounds_child[0] and split < root_bounds_child[1]]
+			offset = stem_bounds_self[0] - stem_bounds_child[0]
+			mapped_child_splits = [split + offset for split in child.morph_bounds if split > stem_bounds_child[0] and split < stem_bounds_child[1]]
 			
 			self.morph_bounds = self.morph_bounds.union(mapped_child_splits)
 			
@@ -475,12 +475,12 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 	else:
 		db = derinet_db
 	
-	perr("Detecting root bounds.")
+	perr("Detecting stem bounds.")
 	
 	for node in db.iter():
-		node.detect_morph_bounds()
+		node.detect_stems()
 	
-	perr("Root bounds detected at %s" % strftime("%c"))
+	perr("Stem bounds detected at %s" % strftime("%c"))
 	perr("Propagating morph bounds.")
 	
 	for root in db.iter_trees():
@@ -545,7 +545,7 @@ def process_stdin(derinet_file_name, morfflex_file_name, morpho_file_name):
 					# Create a new node for the word and propagate the bounds to it.
 					parent_node = parent_nodes[0]
 					node = Lexeme(word, parent_lemma=lemma)
-					node.detect_morph_bounds(parent_node)
+					node.detect_stems(parent_node)
 					node.copy_morph_bounds(parent_node)
 			
 			if node:
