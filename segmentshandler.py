@@ -115,32 +115,52 @@ class SegmentedLoader:
 class SegmentedStorer:
 	def __init__(self, fileformat, filehandle):
 		if fileformat == "vbpe":
-			self.format_sent = self.write_vbpe
+			self.morph_separator = "@@\n"
+			self.word_separator = "\n"
+			self.sentence_separator = "\n"
+			self.sentence_end = "\n"
 		elif fileformat == "hbpe":
-			self.format_sent = self.write_hbpe
+			self.morph_separator = "@@ "
+			self.word_separator = " "
+			self.sentence_separator = ""
+			self.sentence_end = "\n"
 		elif fileformat == "spl":
-			self.format_sent = self.write_spl
+			self.morph_separator = ""
+			self.word_separator = " "
+			self.sentence_separator = ""
+			self.sentence_end = "\n"
 		elif fileformat == "hmorph":
-			self.format_sent = self.write_hmorph
+			self.morph_separator = " "
+			self.word_separator = " ◽ "
+			self.sentence_separator = ""
+			self.sentence_end = "\n"
 		else:
 			raise ValueError("Unexpected file format '%s'." % fileformat)
 		
 		self.filehandle = filehandle
+		self.first = True # True for the first sentence that is ever printed, False for all other.
+		
 	
 	def print_sentence(self, sentence):
-		formatted_output = self.format_sent(sentence)
-		print(formatted_output, file=self.filehandle)
+		if self.first:
+			formatted_output = ""
+		else:
+			formatted_output = self.sentence_separator
+		
+		formatted_output += self.format_sentence(sentence)
+		print(formatted_output, file=self.filehandle, end=self.sentence_end)
+		
+		self.first = False
 	
-	def write_hmorph(self, sentence):
-		words = list(map(lambda morphs: " ".join(morphs), sentence))
-		return " ◽ ".join(words)
+	def format_sentence(self, sentence):
+		return self.word_separator.join([self.morph_separator.join(morphs) for morphs in sentence])
 
 if __name__ == '__main__':
 	import argparse
 	
 	parser = argparse.ArgumentParser(description="Convert corpora between various formats.")
 	parser.add_argument("-f", "--from", metavar="FORMAT", dest="from_format", help="the format to convert from. Available: vbpe, hbpe, spl, hmorph.", choices=["vbpe", "hbpe", "spl", "hmorph"], required=True)
-	parser.add_argument("-t", "--to", metavar="FORMAT", dest="to_format", help="the format to convert to. Available: hmorph", default="hmorph", choices=["hmorph"])
+	parser.add_argument("-t", "--to", metavar="FORMAT", dest="to_format", help="the format to convert to. Available: vbpe, hbpe, spl, hmorph. Default: hmorph.", default="hmorph", choices=["vbpe", "hbpe", "spl", "hmorph"])
 	args = parser.parse_args()
 	
 	storer = SegmentedStorer(args.to_format, filehandle=sys.stdout)
