@@ -74,13 +74,13 @@ derinet-1-4.tsv.gz:
 
 
 segments-derinet-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz
-	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz > "$@"
+	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph derinet-1-4.tsv.gz > "$@"
 
 segments-derinet-morphodita-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz czech-morfflex-pdt-161115/README
-	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -a "$(MORPHO_TAGGER)" > "$@"
+	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph derinet-1-4.tsv.gz -a "$(MORPHO_TAGGER)" > "$@"
 
 segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
-	zcat $(TRAIN_CORPUS-cs) | sed -e 's/$$/\n/; s/\s\+/\n/g' | ./segment-by-derinet.py derinet-1-4.tsv.gz -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
+	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph derinet-1-4.tsv.gz -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
 
 
 stats-bpe-%.txt: segments-bpe-%.txt segmentation-statistics.py
@@ -88,7 +88,7 @@ stats-bpe-%.txt: segments-bpe-%.txt segmentation-statistics.py
 stats-morfessor-%.txt: segments-morfessor-%.txt segmentation-statistics.py
 	./segmentation-statistics.py -f hmorph < "$<" > "$@"
 stats-derinet-%.txt: segments-derinet-%.txt segmentation-statistics.py
-	./segmentation-statistics.py -f vbpe < "$<" > "$@"
+	./segmentation-statistics.py -f hmorph < "$<" > "$@"
 stats-corpus-%.txt: $(DATA_SOURCE)
 	zcat $(TRAIN_CORPUS-$*) | ./segmentation-statistics.py -f spl > "$@"
 

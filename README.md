@@ -21,11 +21,11 @@ We want to explore machine translation text preprocessing options and pass NPFL0
 ```shell-session
 $ ./segment-by-derinet.py --help
 usage: segment-by-derinet.py [-h] [-a DICTIONARY.tagger]
-                             [-m MORFFLEX.tab.csv.xz]
+                             [-m MORFFLEX.tab.csv.xz] [-f FORMAT] [-t FORMAT]
                              DERINET.tsv.gz
 
 Extract possible segmentations from dictionaries of derivations and
-inflections.
+inflections and segment corpora from STDIN.
 
 positional arguments:
   DERINET.tsv.gz        a path to the compressed DeriNet dictionary.
@@ -33,16 +33,21 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -a DICTIONARY.tagger, --analyzer DICTIONARY.tagger
-                        a path to the MorphoDiTa tagger data.
-                        When used, will lemmatize the input data before
-                        segmenting, thus supporting segmentation of inflected
-                        forms.
+                        a path to the MorphoDiTa tagger data. When used, will
+                        lemmatize the input data before segmenting, thus
+                        supporting segmentation of inflected forms.
   -m MORFFLEX.tab.csv.xz, --morfflex MORFFLEX.tab.csv.xz
                         a path to the compressed MorfFlex dictionary. When
                         used, will enrich the dictionary with forms in
                         addition to lemmas, thus supporting segmentation of
                         inflected forms. Beware, this makes the program very
                         memory intensive.
+  -f FORMAT, --from FORMAT
+                        the format to read. Available: vbpe, hbpe, spl,
+                        hmorph. Default: spl.
+  -t FORMAT, --to FORMAT
+                        the format to write. Available: vbpe, hbpe, spl,
+                        hmorph. Default: vbpe.
 
 By default, only lemmas from DeriNet are loaded. Since segmentation of lemmas
 only is too limited for most applications, you can optionally enable support
@@ -57,8 +62,8 @@ forms reliably.
 ## Code Example
 
 ```shell-session
-$ echo -e 'Ahoj\nsvěte\n!\n\nNáš\nzačátek\nbyl\npomalejší\n,\nlitoval\npo\nprohře\nBerdych\n.' | \
-> ./segment-by-derinet.py derinet-1-4.tsv.gz -a czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tagger
+$ echo -e 'Ahoj světe !\nNáš začátek byl pomalejší , litoval po prohře Berdych .' |
+> ~/škola/statistical-MT/2017/segmentace/segment-by-derinet.py -a czech-morfflex-pdt-161115/czech-morfflex-pdt-161115.tagger derinet-1-4.tsv.gz
 Ahoj
 svět@@
 e
