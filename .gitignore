@@ -1,0 +1,16 @@
+# Ignore buildable files.
+wmt17-nmt-training-task-package
+wmt17-nmt-training-task-package.tgz
+czech-morfflex-pdt-161115
+czech-morfflex-pdt-161115.zip
+derinet-1-4.tsv.gz
+morfessor-vocab-*.txt
+morfessor-model-*.bin
+morfessor-*-log.txt
+bpe
+bpe-vocab-*.txt
+segments-*.txt
+stats-*.txt
+
+# Ignore technical stuff
+__pycache__
