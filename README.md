@@ -63,7 +63,7 @@ forms reliably.
 
 ```shell-session
 $ echo -e 'Ahoj světe !\nNáš začátek byl pomalejší , litoval po prohře Berdych .' |
-> ~/škola/statistical-MT/2017/segmentace/segment-by-derinet.py -a czech-morfflex-pdt-161115/czech-morfflex-pdt-161115.tagger derinet-1-4.tsv.gz
+> ./segment-by-derinet.py -a czech-morfflex-pdt-161115/czech-morfflex-pdt-161115.tagger derinet-1-4.tsv.gz
 Ahoj
 svět@@
 e
