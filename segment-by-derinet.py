@@ -472,90 +472,78 @@ class MorfFlexDatabase:
 				yield lexeme
 		
 
-def initialize_segmenters(derinet_file_name, morfflex_file_name, morpho_file_name):
-	perr("Loading derivations.")
-	derinet_db = DeriNetDatabase(derinet_file_name)
-	perr("Derivations loaded at %s" % strftime("%c"))
-	
-	if morfflex_file_name is not None:
-		perr("Loading inflections.")
-		db = MorfFlexDatabase(morfflex_file_name, derinet_db)
-		perr("Inflections loaded at %s" % strftime("%c"))
-	else:
-		db = derinet_db
-	
-	perr("Detecting stem bounds.")
-	
-	for node in db.iter():
-		node.detect_stems()
-	
-	perr("Stem bounds detected at %s" % strftime("%c"))
-	perr("Propagating morph bounds.")
-	
-	for root in db.iter_trees():
-		root.propagate_morph_bounds()
-	
-	perr("Morph bounds propagated at %s" % strftime("%c"))
-	
-	if morpho_file_name is not None:
-		perr("Loading morphology")
-		tagger = None
-		if morphodita_available:
-			tagger = Tagger.load(morpho_file_name)
-		else:
-			perr("You need to install the MorphoDiTa Python bindings!")
+class Segmentace:
+	def __init__(self, derinet_file_name, morfflex_file_name, morpho_file_name):
+		perr("Loading derivations.")
+		derinet_db = DeriNetDatabase(derinet_file_name)
+		perr("Derivations loaded at %s" % strftime("%c"))
 		
-		if not tagger:
-			perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
-			sys.exit(1)
-		perr("Morphology loaded at %s" % strftime("%c"))
-	else:
-		perr("No morphological dictionary specified. Inflectional morphology will not be available.")
-		tagger = None
-	
-	return db, tagger
-	
-
-def process_input(loader, storer, db, tagger=None):
-	
-	#morphCounter = Counter()
-	#for node in db.iter():
-		#morphs = node.morphs()
-		#for morph in morphs:
-			#morphCounter[morph] += 1
-		#print("/".join(morphs))
-	
-	
-	#for morph, count in morphCounter.most_common():
-		#print("%s\t%d" % (morph, count))
-	
-	
-	# Initialize the MorphoDiTa structures.
-	if morphodita_available:
-		lemmas = TaggedLemmas()
-	else:
+		if morfflex_file_name is not None:
+			perr("Loading inflections.")
+			db = MorfFlexDatabase(morfflex_file_name, derinet_db)
+			perr("Inflections loaded at %s" % strftime("%c"))
+		else:
+			db = derinet_db
+		
+		perr("Detecting stem bounds.")
+		
+		for node in db.iter():
+			node.detect_stems()
+		
+		perr("Stem bounds detected at %s" % strftime("%c"))
+		perr("Propagating morph bounds.")
+		
+		for root in db.iter_trees():
+			root.propagate_morph_bounds()
+		
+		perr("Morph bounds propagated at %s" % strftime("%c"))
+		
 		lemmas = []
+		if morpho_file_name is not None:
+			perr("Loading morphology")
+			tagger = None
+			if morphodita_available:
+				tagger = Tagger.load(morpho_file_name)
+			else:
+				perr("You need to install the MorphoDiTa Python bindings!")
+			
+			if not tagger:
+				perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
+				sys.exit(1)
+			
+			lemmas = TaggedLemmas()
+			perr("Morphology loaded at %s" % strftime("%c"))
+		else:
+			perr("No morphological dictionary specified. Inflectional morphology will not be available.")
+			tagger = None
+		
+		self.db = db
+		self.tagger = tagger
+		self.lemmas = lemmas
 	
+	def segment_word(self, word):
+		raise NotImplementedError("Not done yet. Use segment_sentence for now")
+		
 	
-	for input_sentence in loader:
+	def segment_sentence(self, input_sentence):
 		words = ["".join(morphs) for morphs in input_sentence]
 		output_sentence = []
 		
 		if morphodita_available:
-			tagger.tag(words, lemmas)
+			self.tagger.tag(words, self.lemmas)
 		
-		for word, analysis in itertools.zip_longest(words, lemmas):
+		for word, analysis in itertools.zip_longest(words, self.lemmas):
 			node = None
 			parent_node = None
 			
 			# First, try to find the word in the database.
-			nodes = db.get_by_lemma(word)
+			nodes = self.db.get_by_lemma(word)
 			if nodes:
 				node = nodes[0]
 			elif analysis is not None:
 				# If the word is not in the database itself, try to find its lemma there.
 				lemma = techlemma_to_lemma(analysis.lemma)
-				parent_nodes = db.get_by_lemma(lemma)
+				parent_nodes = self.db.get_by_lemma(lemma)
 				if parent_nodes:
 					# The word is not in the database, but its lemma is.
 					# Create a new node for the word and propagate the bounds to it.
@@ -569,6 +557,15 @@ def process_input(loader, storer, db, tagger=None):
 			else:
 				# If all else fails, consider the word to be a single morph.
 				output_sentence.append([word])
+		
+		return output_sentence
+
+
+
+def process_input(loader, storer, segmenter):
+	
+	for input_sentence in loader:
+		output_sentence = segmenter.segment_sentence(input_sentence)
 		
 		#perr(output_sentence)
 		
@@ -609,13 +606,13 @@ if __name__ == '__main__':
 	morfflex_file_name = args.morfflex
 	morpho_file_name = args.analyzer
 	
-	db, tagger = initialize_segmenters(derinet_file_name, morfflex_file_name, morpho_file_name)
+	segmenter = Segmentace(derinet_file_name, morfflex_file_name, morpho_file_name)
 	
 	perr("Ready to split STDIN at %s." % strftime("%c"))
 	
 	loader = SegmentedLoader(args.from_format, filehandle=sys.stdin)
 	storer = SegmentedStorer(args.to_format, filehandle=sys.stdout)
 	
-	process_input(loader, storer, db, tagger=tagger)
+	process_input(loader, storer, segmenter)
 	
 	perr("Finished at %s." % strftime("%c"))
