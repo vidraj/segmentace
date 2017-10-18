@@ -369,19 +369,20 @@ class DeriNetParser:
 			raise StopIteration()
 
 class DeriNetDatabase:
-	def __init__(self, parser):
+	def __init__(self, derinet_file_name):
 		id_to_lexeme = {}
 		lemma_to_lexemes = defaultdict(list)
 		
-		for lexeme in parser:
-			if lexeme is None:
-				raise Exception("Null lexeme encountered!")
-			
-			if id_to_lexeme.get(lexeme.id) is not None:
-				raise Exception("Lexeme %s defined twice!" % lexeme)
-			else:
-				id_to_lexeme[lexeme.id] = lexeme
-				lemma_to_lexemes[lexeme.lemma].append(lexeme)
+		with DeriNetParser(derinet_file_name) as derinet:
+			for lexeme in derinet:
+				if lexeme is None:
+					raise Exception("Null lexeme encountered!")
+				
+				if id_to_lexeme.get(lexeme.id) is not None:
+					raise Exception("Lexeme %s defined twice!" % lexeme)
+				else:
+					id_to_lexeme[lexeme.id] = lexeme
+					lemma_to_lexemes[lexeme.lemma].append(lexeme)
 		
 		for lexeme in id_to_lexeme.values():
 			if lexeme.parent_id is not None:
@@ -429,29 +430,30 @@ class MorfFlexDatabase:
 	def __init__(self, parser, derinet_db):
 		form_to_lexemes = derinet_db.lemma_to_lexemes
 		lexemes = list(derinet_db.id_to_lexeme.values())
-		for lexeme in parser:
-			# If the lexeme is in the database already, we have to ensure it has a different parent (or no parent at all).
-			# Otherwise don't add duplicates.
-			duplicate = False
-			for already_present_node in derinet_db.get_by_lemma(lexeme.lemma):
-				if already_present_node.parent and already_present_node.parent.lemma == lexeme.parent_lemma:
-					duplicate = True
-					break
-			
-			if not duplicate:
-				parents = derinet_db.get_by_lemma(lexeme.parent_lemma)
-				if parents:
-					lexeme.set_parent(parents[0])
-					lexemes.append(lexeme)
-					form_to_lexemes[lexeme.lemma].append(lexeme)
-				else:
-					#raise Exception("Parent of '%s' with lemma '%s' not found in the database." % (lexeme.lemma, lexeme.parent_lemma))
-					parent = Lexeme(lexeme.parent_lemma)
-					lexemes.append(parent)
-					form_to_lexemes[parent.lemma].append(parent)
-					lexeme.set_parent(parent)
-					lexemes.append(lexeme)
-					form_to_lexemes[lexeme.lemma].append(lexeme)
+		with MorfFlexParser(morfflex_file_name, derinet_db) as morfflex:
+			for lexeme in morfflex:
+				# If the lexeme is in the database already, we have to ensure it has a different parent (or no parent at all).
+				# Otherwise don't add duplicates.
+				duplicate = False
+				for already_present_node in derinet_db.get_by_lemma(lexeme.lemma):
+					if already_present_node.parent and already_present_node.parent.lemma == lexeme.parent_lemma:
+						duplicate = True
+						break
+				
+				if not duplicate:
+					parents = derinet_db.get_by_lemma(lexeme.parent_lemma)
+					if parents:
+						lexeme.set_parent(parents[0])
+						lexemes.append(lexeme)
+						form_to_lexemes[lexeme.lemma].append(lexeme)
+					else:
+						#raise Exception("Parent of '%s' with lemma '%s' not found in the database." % (lexeme.lemma, lexeme.parent_lemma))
+						parent = Lexeme(lexeme.parent_lemma)
+						lexemes.append(parent)
+						form_to_lexemes[parent.lemma].append(parent)
+						lexeme.set_parent(parent)
+						lexemes.append(lexeme)
+						form_to_lexemes[lexeme.lemma].append(lexeme)
 		
 		self.lexemes = lexemes
 		self.form_to_lexemes = form_to_lexemes
@@ -472,17 +474,12 @@ class MorfFlexDatabase:
 
 def initialize_segmenters(derinet_file_name, morfflex_file_name, morpho_file_name):
 	perr("Loading derivations.")
-	with DeriNetParser(derinet_file_name) as derinet:
-		#for lexeme in itertools.islice(derinet, 10):
-			#print(lexeme.lemma)
-		
-		derinet_db = DeriNetDatabase(derinet)
+	derinet_db = DeriNetDatabase(derinet_file_name)
 	perr("Derivations loaded at %s" % strftime("%c"))
 	
 	if morfflex_file_name is not None:
 		perr("Loading inflections.")
-		with MorfFlexParser(morfflex_file_name, derinet) as morfflex:
-			db = MorfFlexDatabase(morfflex, derinet_db)
+		db = MorfFlexDatabase(morfflex_file_name, derinet_db)
 		perr("Inflections loaded at %s" % strftime("%c"))
 	else:
 		db = derinet_db
