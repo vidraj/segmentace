@@ -3,9 +3,8 @@
 import sys
 import unittest
 import argparse
-from time import strftime
+import logging
 
-from log import perr
 from lexeme import Lexeme
 from segmentshandler import SegmentedLoader, SegmentedStorer
 from segmentace import Segmentace
@@ -25,24 +24,38 @@ def parse_args():
 	args = parser.parse_args()
 	return args
 
+def set_up_logging():
+	# Create a 'root' logger.
+	logger = logging.getLogger()
+	logger.setLevel(logging.INFO)
+
+	# Create a console handler and set its level to debug.
+	ch = logging.StreamHandler()
+	ch.setLevel(logging.DEBUG)
+
+	# Create a formatter
+	formatter = logging.Formatter("%(levelname)s from %(name)s at %(asctime)s: %(message)s")
+
+	# Add the formatter to the handler.
+	ch.setFormatter(formatter)
+
+	# Add the handler to the root logger.
+	logger.addHandler(ch)
 
 
 def process_input(loader, storer, segmenter):
-	
 	for input_sentence in loader:
 		output_sentence = segmenter.segment_sentence(input_sentence)
-		
-		#perr(output_sentence)
-		
 		storer.print_sentence(output_sentence)
-	
-	#perr(Lexeme.morph_change_types)
 
 
 
 if __name__ == '__main__':
 	#unittest.main()
-	perr("Started at %s." % strftime("%c"))
+	set_up_logging()
+	logger = logging.getLogger(__name__)
+	
+	logger.info("Started.")
 	
 	args = parse_args()
 	
@@ -52,11 +65,11 @@ if __name__ == '__main__':
 	
 	segmenter = Segmentace(derinet_file_name, morfflex_file_name, morpho_file_name)
 	
-	perr("Ready to split STDIN at %s." % strftime("%c"))
+	logger.info("Ready to split STDIN.")
 	
 	loader = SegmentedLoader(args.from_format, filehandle=sys.stdin)
 	storer = SegmentedStorer(args.to_format, filehandle=sys.stdout)
 	
 	process_input(loader, storer, segmenter)
 	
-	perr("Finished at %s." % strftime("%c"))
+	logger.info("Finished.")

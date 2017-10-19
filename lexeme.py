@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import unittest
+import logging
 
-from log import perr
+logger = logging.getLogger(__name__)
 
 def longest_common_substring_position(string_a, string_b):
 	"""Returns (start of lcs in string_a, start of lcs in string_b, length of lcs)"""
@@ -134,7 +135,7 @@ class Lexeme:
 			parent = self.parent
 		
 		if parent is None:
-			#perr("Trying to detect morph bounds of %d (%s), which has no parent!" % (self.id, self.lemma))
+			logger.debug("Trying to detect morph bounds of %d (%s), which has no parent!", self.id, self.lemma)
 			return
 		
 		plemma = parent.lemma
@@ -169,14 +170,14 @@ class Lexeme:
 						morph_change_type = "scha"
 			else:
 				if stem_end_off_parent != 0 or stem_end_off_self != 0:
-					#perr("Circumfixation in %s → %s." % (plemma, slemma))
+					logger.debug("Circumfixation in %s → %s.", plemma, slemma)
 					morph_change_type = "circ"
 				else:
 					morph_change_type = "padd"
 		else:
 			# PREM / PCHA
 			if stem_end_off_parent != 0 or stem_end_off_self != 0:
-				#perr("Circumfixation in %s → %s." % (plemma, slemma))
+				logger.debug("Circumfixation in %s → %s.", plemma, slemma)
 				morph_change_type = "circ"
 			else:
 				if stem_start_self == 0:
@@ -202,11 +203,11 @@ class Lexeme:
 		
 		# Write the newly found bounds, unless they are weird.
 		if morph_change_type in Lexeme.allowed_morph_change_types:
-			#perr("Divided by %s: '%s' → '%s'" % (morph_change_type, "/".join(psegments), "/".join(ssegments)))
+			logger.debug("Divided by %s: '%s' → '%s'", morph_change_type, "/".join(psegments), "/".join(ssegments))
 			self.morph_bounds = self.morph_bounds.union(bounds_self)
 			parent.morph_bounds = parent.morph_bounds.union(bounds_parent)
 		else:
-			#perr("Divided by %s: '%s' → '%s' (spurious, not saving)" % (morph_change_type, "/".join(psegments), "/".join(ssegments)))
+			logger.debug("Divided by %s: '%s' → '%s' (spurious, not saving)", morph_change_type, "/".join(psegments), "/".join(ssegments))
 			pass
 	
 	def copy_morph_bounds(self, parent=None):

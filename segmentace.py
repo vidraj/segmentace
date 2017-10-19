@@ -3,12 +3,11 @@
 import re
 import itertools
 from collections import defaultdict
-from time import strftime
+import logging
 
 import gzip
 import lzma
 
-from log import perr
 from lexeme import Lexeme
 
 # Load MorphoDiTa if available, otherwise fail silently.
@@ -20,6 +19,7 @@ try:
 except ImportError:
 	pass
 
+logger = logging.getLogger(__name__)
 
 
 def techlemma_to_lemma(techlemma):
@@ -199,47 +199,48 @@ class MorfFlexDatabase:
 
 class Segmentace:
 	def __init__(self, derinet_file_name, morfflex_file_name, morpho_file_name):
-		perr("Loading derivations.")
+		logger.info("Loading derivations.")
 		derinet_db = DeriNetDatabase(derinet_file_name)
-		perr("Derivations loaded at %s" % strftime("%c"))
+		logger.info("Derivations loaded.")
 		
 		if morfflex_file_name is not None:
-			perr("Loading inflections.")
+			logger.info("Loading inflections.")
 			db = MorfFlexDatabase(morfflex_file_name, derinet_db)
-			perr("Inflections loaded at %s" % strftime("%c"))
+			logger.info("Inflections loaded.")
 		else:
+			logger.info("Not loading inflections.")
 			db = derinet_db
 		
-		perr("Detecting stem bounds.")
+		logger.info("Detecting stem bounds.")
 		
 		for node in db.iter():
 			node.detect_stems()
 		
-		perr("Stem bounds detected at %s" % strftime("%c"))
-		perr("Propagating morph bounds.")
+		logger.info("Stem bounds detected.")
+		logger.info("Propagating morph bounds.")
 		
 		for root in db.iter_trees():
 			root.propagate_morph_bounds()
 		
-		perr("Morph bounds propagated at %s" % strftime("%c"))
+		logger.info("Morph bounds propagated.")
 		
 		lemmas = []
 		if morpho_file_name is not None:
-			perr("Loading morphology")
+			logger.info("Loading morphology")
 			tagger = None
 			if morphodita_available:
 				tagger = Tagger.load(morpho_file_name)
 			else:
-				perr("You need to install the MorphoDiTa Python bindings!")
+				logger.error("You need to install the MorphoDiTa Python bindings!")
 			
 			if not tagger:
-				perr("Cannot load morphological dictionary from file '%s'." % morpho_file_name)
+				logger.critical("Cannot load morphological dictionary from file '%s'.",  morpho_file_name)
 				sys.exit(1)
 			
 			lemmas = TaggedLemmas()
-			perr("Morphology loaded at %s" % strftime("%c"))
+			logger.info("Morphology loaded.")
 		else:
-			perr("No morphological dictionary specified. Inflectional morphology will not be available.")
+			logger.info("No morphological dictionary specified. Inflectional morphology will not be available.")
 			tagger = None
 		
 		self.db = db
@@ -271,6 +272,7 @@ class Segmentace:
 			return node.morphs()
 		else:
 			# If all else fails, consider the word to be a single morph.
+			logger.debug("Word '%s' not recognized. No segmentation given.", word)
 			return [word]
 		
 	
