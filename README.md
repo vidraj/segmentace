@@ -58,6 +58,22 @@ to install the 'ufal.morphodita' package prom PyPI and doesn't segment all
 forms reliably.
 ```
 
+## Supported formats
+
+The `segment-by-derinet.py` segmenter, `segmentshandler.py` converter and
+`segmentation-statistics.py` stats calculator support several input and output
+formats. They are:
+- `vbpe` for BPE-like seg@@ ments separated by a newline. Non-final morphs in
+  a word are marked by an "@@" suffix, the final morph is left unmarked.
+  Sentences are separated by an empty line (two newlines).
+- `hbpe` for BPE-like seg@@ ments separated by a space. Sentences are separated
+  by a newline.
+- `spl` for sentence-per-line without any morph separation. This is used for reading.
+- `hmorph` for morphs separated by a space, words separated by a "◽" (white square)
+  symbol and sentences separated by a newline.
+
+The defaults are `spl` for reading and `vbpe` for writing.
+
 
 ## Code Example
 
