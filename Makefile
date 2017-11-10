@@ -13,6 +13,7 @@ TRAIN_CORPUS-cs-iso::=wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
 TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 
 MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tagger
+DERINET::=derinet-1-4.tsv.gz
 
 all: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
 all: stats-derinet-morphodita-cs.txt
@@ -20,7 +21,7 @@ all: stats-bpe-1000-cs.txt stats-bpe-30000-cs.txt stats-bpe-50000-cs.txt stats-b
 all: stats-bpe-1000-en.txt stats-bpe-30000-en.txt stats-bpe-50000-en.txt stats-bpe-85000-en.txt
 all: stats-corpus-cs.txt stats-corpus-en.txt
 
-download: czech-morfflex-pdt-161115/README derinet-1-4.tsv.gz
+download: czech-morfflex-pdt-161115/README $(DERINET)
 
 # Run Morfessor on the input, save a mapping from words to segments.
 morfessor-vocab-%.txt: $(MORFESSOR_MODEL)-%.bin $(DATA_SOURCE)
@@ -69,18 +70,18 @@ czech-morfflex-pdt-161115.zip:
 czech-morfflex-pdt-161115/README: czech-morfflex-pdt-161115.zip
 	unzip -DD "$<"
 
-derinet-1-4.tsv.gz:
-	wget -O "$@" 'https://www.jonys.cz/derinet/search/derinet-1-4.tsv.gz'
+$(DERINET):
+	wget -O "$@" 'https://www.jonys.cz/derinet/search/$@'
 
 
-segments-derinet-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz
-	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph derinet-1-4.tsv.gz > "$@"
+segments-derinet-cs.txt: $(DATA_SOURCE) $(DERINET)
+	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph $(DERINET) > "$@"
 
-segments-derinet-morphodita-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz czech-morfflex-pdt-161115/README
-	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph derinet-1-4.tsv.gz -a "$(MORPHO_TAGGER)" > "$@"
+segments-derinet-morphodita-cs.txt: $(DATA_SOURCE) $(DERINET) czech-morfflex-pdt-161115/README
+	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -a "$(MORPHO_TAGGER)" > "$@"
 
-segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) derinet-1-4.tsv.gz morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
-	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph derinet-1-4.tsv.gz -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
+segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) $(DERINET) morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
+	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
 
 
 stats-bpe-%.txt: segments-bpe-%.txt segmentation-statistics.py
@@ -96,7 +97,7 @@ stats-corpus-%.txt: $(DATA_SOURCE)
 
 clean:
 # 	rm -rf wmt17-nmt-training-task-package wmt17-nmt-training-task-package.tgz
-# 	rm -f derinet-1-4.tsv.gz
+# 	rm -f $(DERINET)
 # 	rm -rf czech-morfflex-pdt-161115/
 	rm -f morfessor-model-*.bin segments-*.txt lexicon-*.txt morfessor-*-log.txt
 	rm -f bpe-vocab-*.txt morfessor-vocab-*.txt
