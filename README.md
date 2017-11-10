@@ -1,9 +1,10 @@
 ## Synopsis
 
-This repository contains several tools for segmenting word-segmented text into subword units and a statistics collection module that generates reports about their functionality. Currently, we test three systems:
+This repository contains a tool called `segment-by-derinet.py` (see below) for segmenting word-segmented text into subword units based on [DeriNet](https://ufal.mff.cuni.cz/derinet), a network of Czech lexical derivations.
+
+Two other segmentation systems are present for comparison and a statistics collection module generates reports about their functionality. These systems are:
 - [Byte-Pair Encoding](https://github.com/rsennrich/subword-nmt) as per Sennrich et al., 2015 (Neural Machine Translation of Rare Words with Subword Units)
 - [Morfessor 2.0](http://morpho.aalto.fi/projects/morpho/morfessor2.html) by Sami Virpioja et al., 2013 (Morfessor 2.0: Python Implementation and Extensions for Morfessor Baseline)
-- [DeriNet](https://ufal.mff.cuni.cz/derinet) and [MorphoDita](https://ufal.mff.cuni.cz/morphodita) guided segmentation, developed by us and implemented in `segment-by-derinet.py` (see below).
 
 ## Motivation
 
@@ -11,10 +12,15 @@ We want to explore machine translation text preprocessing options and pass NPFL0
 
 ## Installation
 
+If you want to segment some text with the DeriNet-based segmenter, do the following:
 1. Install the Python MorphoDiTa bindings (ufal.morphodita package) from PyPI. Typically, you'd do this by typing `pip3 install --user ufal.morphodita` into your terminal.
-2. Install Morfessor 2.0 (Morfessor package) from PyPI. Type `pip3 install --user Morfessor`.
-3. Optionally, type `make download` to fetch the necessary models and data. It downloads MorphoDiTa 2016.11 models into czech-morfflex-pdt-161115/ and DeriNet 1.4 to derinet-1-4.tsv.gz. You can then play with the tools yourself.
-4. Or, proceed the automatized way by simply typing `make -rj8` (subsitute your own preferred thread count for 8). This downlads the data, runs the models on the WMT17 NMT training dataset and produces files `segments-*.txt` with the segmented texts and `stats-*.txt` with the measured statistics.
+2. Optionally, type `make download` to fetch the necessary models and data. It downloads MorphoDiTa 2016.11 models into czech-morfflex-pdt-161115/ and DeriNet 1.4 to derinet-1-4.tsv.gz. You can then play with the tools yourself.
+3. Or, proceed the automatized way by simply typing `make`. This downlads the data, runs the DeriNet segmenter on the WMT17 NMT training dataset and produces files `segments-*.txt` with the segmented texts and `stats-*.txt` with the measured statistics.
+
+Optionally, you can also compare the DeriNet-based method with BPE and Morfessor by:
+1. Installing Morfessor 2.0 (Morfessor package) from PyPI. Type `pip3 install --user Morfessor`.
+2. Running `make -rj8 compare` (subsitute your own preferred thread count for 8).
+3. Inspecting the generated `segments-*.txt` and `stats-*.txt` files.
 
 ## Usage
 

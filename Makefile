@@ -1,4 +1,4 @@
-.PHONY: all download clean
+.PHONY: all compare download clean
 
 # Never ever remove any intermediate files.
 # .PRECIOUS:
@@ -15,11 +15,13 @@ TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tagger
 DERINET::=derinet-1-4.tsv.gz
 
-all: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
 all: stats-derinet-morphodita-cs.txt
-all: stats-bpe-1000-cs.txt stats-bpe-30000-cs.txt stats-bpe-50000-cs.txt stats-bpe-85000-cs.txt
-all: stats-bpe-1000-en.txt stats-bpe-30000-en.txt stats-bpe-50000-en.txt stats-bpe-85000-en.txt
-all: stats-corpus-cs.txt stats-corpus-en.txt
+
+compare: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
+compare: stats-derinet-morphodita-cs.txt
+compare: stats-bpe-1000-cs.txt stats-bpe-30000-cs.txt stats-bpe-50000-cs.txt stats-bpe-85000-cs.txt
+compare: stats-bpe-1000-en.txt stats-bpe-30000-en.txt stats-bpe-50000-en.txt stats-bpe-85000-en.txt
+compare: stats-corpus-cs.txt stats-corpus-en.txt
 
 download: czech-morfflex-pdt-161115/README $(DERINET)
 
