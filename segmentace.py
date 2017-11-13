@@ -88,7 +88,7 @@ class DeriNetParser:
 		line = self.filehandle.readline()
 		if line:
 			line = line.rstrip('\n')
-			id, lemma, techlemma, pos, parent = line.split('\t')
+			id, lemma, techlemma, pos, parent, *_ = line.split('\t')
 			return Lexeme(lemma, id=id, parent_id=parent)
 		else:
 			raise StopIteration()
