@@ -73,7 +73,7 @@ czech-morfflex-pdt-161115/README: czech-morfflex-pdt-161115.zip
 	unzip -DD "$<"
 
 $(DERINET):
-	wget -O "$@" 'https://www.jonys.cz/derinet/search/$@'
+	wget -O - 'http://ufal.mff.cuni.cz/~zabokrtsky/derinet/$(@:.gz=)' |gzip -cv9 > "$@"
 
 
 segments-derinet-cs.txt: $(DATA_SOURCE) $(DERINET)
