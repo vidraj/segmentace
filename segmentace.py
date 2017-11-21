@@ -225,9 +225,9 @@ class Segmentace:
 		logger.info("Morph bounds propagated.")
 		
 		lemmas = []
+		tagger = None
 		if morpho_file_name is not None:
 			logger.info("Loading morphology")
-			tagger = None
 			if morphodita_available:
 				tagger = Tagger.load(morpho_file_name)
 			else:
@@ -280,7 +280,7 @@ class Segmentace:
 		words = ["".join(morphs) for morphs in input_sentence]
 		output_sentence = []
 		
-		if morphodita_available:
+		if self.tagger:
 			self.tagger.tag(words, self.lemmas)
 		
 		for word, analysis in itertools.zip_longest(words, self.lemmas):
