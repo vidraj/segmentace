@@ -7,6 +7,7 @@
 MORFESSOR_MODEL::=morfessor-model
 
 DATA_SOURCE::=wmt17-nmt-training-task-package/README wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
+GOLD_STANDARD_DATA::=gold-standard-data.txt
 
 TRAIN_CORPUS-cs::=wmt17-nmt-training-task-package/train.cs.gz
 TRAIN_CORPUS-cs-iso::=wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
@@ -96,6 +97,18 @@ stats-corpus-%.txt: $(DATA_SOURCE)
 	zcat $(TRAIN_CORPUS-$*) | ./segmentation-statistics.py -f spl > "$@"
 
 
+gold-predicted-derinet.txt: $(GOLD_STANDARD_DATA) $(DERINET) segment-by-derinet.py
+	sed -e 's/ //g' < "$<" | ./segment-by-derinet.py -f spl -t hmorph "$(DERINET)" > "$@"
+
+precision-recall-derinet.txt: gold-predicted-derinet.txt measure-precision-recall.py $(GOLD_STANDARD_DATA)
+	echo -n 'Stats measured on $(GOLD_STANDARD_DATA) on ' > "$@"
+	date >> "$@"
+	./measure-precision-recall.py -f hmorph "$(GOLD_STANDARD_DATA)" < "$<" >> "$@"
+
+gold-standard-data.txt:
+	@echo -e 'Sorry, our evaluation dataset cannot be published due to licensing restrictions.\nYou will have to provide your own. We apologize for the inconvenience.'
+	false
+
 
 clean:
 # 	rm -rf wmt17-nmt-training-task-package wmt17-nmt-training-task-package.tgz
@@ -104,3 +117,4 @@ clean:
 	rm -f morfessor-model-*.bin segments-*.txt lexicon-*.txt morfessor-*-log.txt
 	rm -f bpe-vocab-*.txt morfessor-vocab-*.txt
 	rm -f stats-*.txt
+	rm -f gold-predicted-*.txt precision-recall-*.txt
