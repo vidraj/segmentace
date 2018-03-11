@@ -2,12 +2,6 @@
 
 # Load segmented words from STDIN and gold-standard segmentation from file, measure accuracy, precision, recall and F1-measure.
 
-# TODO the stats are measured on the morphs themselves. Maybe we'd like to
-#  measure them on the morph boundaries instead? That makes the task somewhat
-#  easier – currently, each misplaced boundary means two wrong morphs.
-
-# Accuracy is measured on the morphs themselves. Precision and recall are measured on morph boundaries.
-
 import sys
 from segmentshandler import SegmentedLoader
 from itertools import zip_longest
@@ -101,11 +95,21 @@ with open(args.gold, "rt") as gold_file:
 			bounds_false_positive += len(fp)
 			bounds_false_negative += len(fn)
 
+
+morph_precision = morphs_correct / (morphs_correct + morphs_incorrect)
+morph_recall = morphs_correct / morphs
+morph_f1 = 2 * morph_precision * morph_recall / (morph_precision + morph_recall)
 print("Morphs correct: %d, incorrect: %d, gold: %d." % (morphs_correct, morphs_incorrect, morphs))
-print("Morph precision: %.02f %%" % (100 * morphs_correct / (morphs_correct + morphs_incorrect)))
-print("Morph recall: %.02f %%" % (100 * morphs_correct / morphs))
+print("Morph precision: %.02f %%" % (100 * morph_precision))
+print("Morph recall: %.02f %%" % (100 * morph_recall))
+print("Morph F1-measure: %02f %" % (100 * morph_f1))
+
+bounds_precision = bounds_true_positive / (bounds_true_positive + bounds_false_positive)
+bounds_recall = bounds_true_positive / (bounds_true_positive + bounds_false_negative)
+bounds_f1 = 2 * bounds_precision * bounds_recall / (bounds_precision + bounds_recall)
 print("Bounds correct: %d, incorrect: %d, gold: %d." % (bounds_true_positive, bounds_false_positive, bounds_true_positive + bounds_false_negative))
-print("Bounds precision: %.02f %%" % (100 * bounds_true_positive / (bounds_true_positive + bounds_false_positive)))
-print("Bounds recall: %.02f %%" % (100 * bounds_true_positive / (bounds_true_positive + bounds_false_negative)))
+print("Bounds precision: %.02f %%" % (100 * bounds_precision))
+print("Bounds recall: %.02f %%" % (100 * bounds_recall))
+print("Bounds F1-measure: %02f %" % (100 * bounds_f1))
+
 print("Word accuracy: %.02f %%" % (100 * words_correct / (words_correct + words_incorrect)))
-#print("Morph F1-measure: %02f %" % (100 * ))
