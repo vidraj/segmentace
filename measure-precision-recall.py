@@ -102,7 +102,7 @@ morph_f1 = 2 * morph_precision * morph_recall / (morph_precision + morph_recall)
 print("Morphs correct: %d, incorrect: %d, gold: %d." % (morphs_correct, morphs_incorrect, morphs))
 print("Morph precision: %.02f %%" % (100 * morph_precision))
 print("Morph recall: %.02f %%" % (100 * morph_recall))
-print("Morph F1-measure: %02f %" % (100 * morph_f1))
+print("Morph F1-measure: %02f %%" % (100 * morph_f1))
 
 bounds_precision = bounds_true_positive / (bounds_true_positive + bounds_false_positive)
 bounds_recall = bounds_true_positive / (bounds_true_positive + bounds_false_negative)
@@ -110,6 +110,6 @@ bounds_f1 = 2 * bounds_precision * bounds_recall / (bounds_precision + bounds_re
 print("Bounds correct: %d, incorrect: %d, gold: %d." % (bounds_true_positive, bounds_false_positive, bounds_true_positive + bounds_false_negative))
 print("Bounds precision: %.02f %%" % (100 * bounds_precision))
 print("Bounds recall: %.02f %%" % (100 * bounds_recall))
-print("Bounds F1-measure: %02f %" % (100 * bounds_f1))
+print("Bounds F1-measure: %02f %%" % (100 * bounds_f1))
 
 print("Word accuracy: %.02f %%" % (100 * words_correct / (words_correct + words_incorrect)))
