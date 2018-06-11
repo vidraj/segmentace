@@ -15,15 +15,16 @@ parser.add_argument("-f", "--format", metavar="FORMAT", dest="input_format", hel
 args = parser.parse_args()
 
 
-def entropy(d, total):
+def entropy(d, total, word_count):
 	"""Calculate the entropy of dictionary of counts d, which has the total sum total (precomputed for speed)."""
 	# Entropie je - Sum_morf p(morf) * log_2 p(morf)
 	#  p(morf) = c(morf) / c(all)
 	e = 0
 	for count in d.values():
 		p = count/total
-		e -= p * log2(p)
-	return e
+		type_e = - p * log2(p)
+		e += type_e * count
+	return e / word_count
 
 
 sents  = 0
@@ -45,5 +46,5 @@ for sentence in SegmentedLoader(args.input_format, filehandle=sys.stdin):
 print("Sents: %d, words: %d, morphs: %d, chars: %d." % (sents, words, morphs, chars))
 print("Chars per morph: %f, morphs per word: %f, morphs per sentence: %f." % (chars / morphs, morphs / words, morphs / sents))
 print("Morph vocabulary size: %d." % (len(morph_vocab.keys())))
-e = entropy(morph_vocab, morphs)
-print("Morph entropy: %f, perplexity: %f." % (e, 2**e))
+e = entropy(morph_vocab, morphs, words)
+print("Avg. per word unigram entropy of morphs: %f, perplexity: %f" % (e, 2**e))
