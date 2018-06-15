@@ -33,6 +33,11 @@ plot: suf-A-count-histogram.png suf-D-count-histogram.png suf-N-count-histogram.
 plot: pref-A-coverage.png pref-D-coverage.png pref-N-coverage.png pref-V-coverage.png
 plot: suf-A-coverage.png suf-D-coverage.png suf-N-coverage.png suf-V-coverage.png
 
+quick-test.out: derinet-test.tsv
+	cut -f2 "$<" | "${PYTHON}" ./segment-by-derinet.py --from spl --to hmorph --em-threshold 0.1 "$<" > "$@"
+
+
+
 compare: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
 compare: stats-derinet-morphodita-cs.txt
 compare: stats-bpe-1000-cs.txt stats-bpe-30000-cs.txt stats-bpe-50000-cs.txt stats-bpe-85000-cs.txt

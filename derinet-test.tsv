@@ -1,0 +1,53 @@
+0	stem	X	N	
+1	stemův	X	A	0
+2	stemový	X	A	0
+3	stemová	X	A	2
+4	stemově	X	D	3
+5	stemit	X	V	0
+6	stemitový	X	A	5
+7	ztemný	X	A	
+8	ztemně	X	D	7
+9	preztemný	X	A	7
+10	preztemně	X	D	8
+11	ztemnův	X	A	7
+12	ztemnový	X	A	7
+13	ztemnová	X	A	12
+14	ztemnově	X	D	12
+15	ztemnit	X	V	7
+16	ztěmnův	X	A	11
+17	ztěmný	X	A	7
+18	ztěmně	X	D	8
+19	preztěmný	X	A	9
+20	preztěmně	X	D	10
+21	ztěmnův	X	A	11
+22	arkansas	X	N	
+23	arkansasův	X	A	22
+24	arkansasový	X	A	22
+25	arkansasová	X	A	24
+26	arkansasově	X	D	25
+27	arkansasit	X	N	22
+28	arkansasitový	X	A	27
+29	kůň	X	N	
+30	koník	X	N	29
+31	koňský	X	A	29
+32	stemský	X	A	0
+33	stemík	X	N	0
+34	arkansasský	X	A	22
+35	arkansasík	X	N	22
+36	prestem	X	N	0
+37	arkansasný	X	A	22
+38	arkansasně	X	D	37
+39	koňový	X	A	29
+40	koníkový	X	A	30
+41	koňová	X	N	39
+42	regex	X	N	
+43	regexův	X	A	42
+44	regexový	X	A	42
+45	regexově	X	D	44
+46	koňův	X	A	29
+47	melen	X	N	
+48	melenův	X	A	47
+49	lůj	X	N	
+50	lojík	X	N	49
+51	dům	X	N	
+52	domek	X	N	51
