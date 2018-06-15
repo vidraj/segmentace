@@ -19,6 +19,7 @@ def parse_args():
 	parser.add_argument("-m", "--morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary. When used, will enrich the dictionary with forms in addition to lemmas, thus supporting segmentation of inflected forms. Beware, this makes the program very memory intensive.")
 	parser.add_argument("-f", "--from", metavar="FORMAT", dest="from_format", help="the format to read. Available: vbpe, hbpe, spl, hmorph. Default: spl.", default="spl", choices=["vbpe", "hbpe", "spl", "hmorph"])
 	parser.add_argument("-t", "--to", metavar="FORMAT", dest="to_format", help="the format to write. Available: vbpe, hbpe, spl, hmorph. Default: vbpe.", default="vbpe", choices=["vbpe", "hbpe", "spl", "hmorph"])
+	parser.add_argument("--em-threshold", metavar="FLONUM", type=float, dest="em_threshold", help="The score difference needed for another EM round.", default=3000.0)
 	#parser.add_argument("morpho", metavar="MORPHO", help="a path to the MorphoDiTa morphological resource.")
 	
 	args = parser.parse_args()
@@ -63,7 +64,7 @@ if __name__ == '__main__':
 	morfflex_file_name = args.morfflex
 	morpho_file_name = args.analyzer
 	
-	segmenter = Segmentace(derinet_file_name, morfflex_file_name, morpho_file_name)
+	segmenter = Segmentace(derinet_file_name, morfflex_file_name, morpho_file_name, args.em_threshold)
 	
 	logger.info("Ready to split STDIN.")
 	
@@ -73,3 +74,4 @@ if __name__ == '__main__':
 	process_input(loader, storer, segmenter)
 	
 	logger.info("Finished.")
+	logger.info("Statistics: sentences %d, words %d, OOV words %d, morphs %d.", segmenter.sents, segmenter.words, segmenter.oov_words, segmenter.morphs)

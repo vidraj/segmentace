@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 
+from collections import defaultdict, namedtuple
+import itertools
+import math
+
 import unittest
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+INS = 1
+DEL = 2
+SUB = 3
 
 def longest_common_substring_position(string_a, string_b):
 	"""Returns (start of lcs in string_a, start of lcs in string_b, length of lcs)"""
@@ -46,8 +55,169 @@ def pairs(l):
 	for lower in range(len(l) - 1):
 		yield (l[lower], l[lower + 1])
 
+
+def extend_hypothesis(tables, hypothesis, f, t):
+	change = (f, t)
+	change_prob = tables.get_change_prob(f, t)
+	if hypothesis is not None:
+		# Extend the existing hypothesis with the change.
+		return (hypothesis[0] + [change], hypothesis[1] * change_prob)
+	else:
+		return ([change], change_prob)
+
+def init_hypotheses():
+	return ((tuple(), 1.0), )
+
+def extend_hypotheses(tables, hypotheses, f, t):
+	assert hypotheses, "Hypotheses must not be empty; use init_hypotheses first."
+	change = (f, t)
+	change_prob = tables.get_change_prob(f, t)
+	
+	# Extend the existing hypothesis with the change.
+	return tuple((changes + (change, ), prob * change_prob) for changes, prob in hypotheses)
+
+def generate_string_mapping_hypotheses(tables, parent_stem, child_stem, hypothesis, allowed_map_types):
+	if not parent_stem and not child_stem:
+		assert hypothesis is not None, "Hypothesis must not be None, probably a mapping to an empty string was attempted."
+		yield hypothesis
+	else:
+		# FIXME when we normalize, the probability of anything getting inserted is – of course – normalized to 1. We don't want that!
+		#  Therefore, plug in new probabilities – p(insertion), p(deletion) and p(substitution).
+		# TODO also think about forbidding deletions at the start and end of the parent_stem. We're trying to model these by chopping off affixes.
+		#  But forbidding them is potentially wrong, because these model a different phenomenon. We possibly need both.
+		#  Yes, it would be wrong: Hamburg – hamburský needs deletion at the end of the parent.
+		if SUB in allowed_map_types and parent_stem and child_stem:
+			#print("sub", parent_stem[0], child_stem[0])
+			sub_hypothesis = extend_hypothesis(tables, hypothesis, parent_stem[0], child_stem[0])
+			yield from generate_string_mapping_hypotheses(tables, parent_stem[1:], child_stem[1:], sub_hypothesis, {INS, DEL, SUB})
+
+		if INS in allowed_map_types and child_stem:
+			#print("ins", child_stem[0])
+			ins_hypothesis = extend_hypothesis(tables, hypothesis, "", child_stem[0])
+			yield from generate_string_mapping_hypotheses(tables, parent_stem, child_stem[1:], ins_hypothesis, allowed_map_types - {DEL})
+
+		if DEL in allowed_map_types and parent_stem:
+			#print("del", parent_stem[0])
+			del_hypothesis = extend_hypothesis(tables, hypothesis, parent_stem[0], "")
+			yield from generate_string_mapping_hypotheses(tables, parent_stem[1:], child_stem, del_hypothesis, allowed_map_types - {INS})
+
+
+def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
+	# I need an algorithm to walk all possibilities and add the final probabilities to new_tables.
+	total_prob = 0.0
+	for hypothesis, prob in generate_string_mapping_hypotheses(tables, parent_stem, child_stem, None, {INS, DEL, SUB}):
+		#print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
+		modified_prob = prob * prob_modifier
+		total_prob += prob
+		for (f, t) in hypothesis:
+			new_tables.add_change(f, t, modified_prob)
+	return total_prob
+#def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
+	#"""The complete version of the tabular algorithm, with the 'only keep two lines in memory at once' optimization."""
+	## I need an algorithm to walk all possibilities and add the final probabilities to new_tables.
+	## Table algorithm.
+	
+	#assert len(parent_stem) >= 1, "The parent stem must not be empty."
+	#assert len(child_stem) >= 1, "The child stem must not be empty."
+	
+	## Initialize the first row.
+	#prev_line = [None] * (len(child_stem) + 1)
+	#prev_line[0] = init_hypotheses() # The initial empty hypothesis.
+	#for j in range(1, len(child_stem) + 1):
+		#prev_line[j] = extend_hypotheses(tables, prev_line[j - 1], "", child_stem[j - 1])
+	
+	## Initialize the second row, i.e. the one to be filled next.
+	#cur_line = [None] * (len(child_stem) + 1)
+	
+	## Fill in the rest of the table.
+	#for i in range(1, len(parent_stem) + 1):
+		## Fill in the first item (it is special, because there is only one hypothesis instead of three.
+		#cur_line[0] = extend_hypotheses(tables, prev_line[0], parent_stem[i - 1], "")
+		
+		## Fill in the rest of the line.
+		#for j in range(1, len(child_stem) + 1):
+			#cur_line[j] = (extend_hypotheses(tables, prev_line[j - 1], parent_stem[i - 1], child_stem[j - 1])
+			             #+ extend_hypotheses(tables, cur_line[j - 1],  "",                 child_stem[j - 1])
+			             #+ extend_hypotheses(tables, prev_line[j],     parent_stem[i - 1], ""))
+		
+		## Swap the lines (the filled-in cur_line will be overwritten in the next iteration).
+		#tmp = prev_line
+		#prev_line = cur_line
+		#cur_line = tmp
+	
+	## The bottom right corner contains the hypothesis list. Calculate the final prob from it.
+	## Beware that the lines have been swapped at the end of the last cycle, so the bottom right corner is in prev_line.
+	#total_prob = 0.0
+	#for hypothesis, prob in prev_line[-1]:
+		##print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
+		#modified_prob = prob * prob_modifier
+		#total_prob += prob
+		#for (f, t) in hypothesis:
+			#new_tables.add_change(f, t, modified_prob)
+	#return total_prob
+#def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
+	#"""The windowed of the tabular algorithm, with the 'only keep two lines in memory at once' and 'only consider a small window' (borrowed from DTW) optimizations."""
+	
+	## Lengths of the window – to the left and to the right.
+	#window_size = (-2, 2)
+	
+	#assert len(parent_stem) >= 1, "The parent stem must not be empty."
+	#assert len(child_stem) >= 1, "The child stem must not be empty."
+	
+	## Initialize the first row.
+	#prev_line = [None] * (len(child_stem) + 1)
+	#prev_line[0] = init_hypotheses() # The initial empty hypothesis.
+	#for j in range(1, min(len(child_stem), window_size[1]) + 1):
+		#prev_line[j] = extend_hypotheses(tables, prev_line[j - 1], "", child_stem[j - 1])
+	
+	## Fill in the rest of the table. Go through the whole parent stem.
+	#for i in range(1, len(parent_stem) + 1):
+		## Initialize the second row, i.e. the one to be filled next.
+		#cur_line = [None] * (len(child_stem) + 1)
+		
+		## Calculate the center of the window.
+		#cur_item = i * (len(child_stem) + 1) / (len(parent_stem) + 1)
+		
+		## Calculate the window bounds. The upper bound is exclusive.
+		#window_start = max(0, math.floor(cur_item) + window_size[0])
+		#window_end = min(len(child_stem), math.ceil(cur_item) + window_size[1]) + 1
+		
+		## Fill in the rest of the line. Map only the items from within the window.
+		#for j in range(window_start, window_end):
+			#cur_line[j] = tuple()
+			#if j >= 1:
+				#if prev_line[j - 1] is not None:
+					#cur_line[j] += extend_hypotheses(tables, prev_line[j - 1], parent_stem[i - 1], child_stem[j - 1])
+				#if cur_line[j - 1] is not None:
+					#cur_line[j] += extend_hypotheses(tables, cur_line[j - 1], "", child_stem[j - 1])
+			#if prev_line[j] is not None:
+				#cur_line[j] += extend_hypotheses(tables, prev_line[j], parent_stem[i - 1], "")
+		
+		## Swap the lines.
+		## It doesn't matter that cur_line stays the same, it is overwritten with a new initialization next.
+		#prev_line = cur_line
+	
+	#assert prev_line[-1] is not None, "The last item never got into the window for stems '{}' and '{}'! Window sizes: cur: {}, start: {}, end: {}.".format(parent_stem, child_stem, cur_item, window_start, window_end)
+	
+	## The bottom right corner contains the hypothesis list. Calculate the final prob from it.
+	## Beware that the lines have been swapped at the end of the last cycle, so the bottom right corner is in prev_line.
+	## That one item should definitely be in the window, so it should never be None.
+	#total_prob = 0.0
+	#for hypothesis, prob in prev_line[-1]:
+		##print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
+		#modified_prob = prob * prob_modifier
+		#total_prob += prob
+		#for (f, t) in hypothesis:
+			#new_tables.add_change(f, t, modified_prob)
+	#return total_prob
+
+
+
 class Lexeme:
+	__slots__ = "id", "lemma", "parent_id", "parent_lemma", "parent", "children", "morph_bounds", "morph_change_type", "stem_map"
+	
 	# Types of morpheme changes encountered in the data and their frequencies.
+	# TODO detect and ignore suppletion.
 	morph_change_types = {"padd": 0, # Prefix addition
 	                      "prem": 0, # Prefix removal
 	                      "pcha": 0, # Prefix substitution
@@ -57,7 +227,9 @@ class Lexeme:
 	                      "conv": 0, # Conversion (no change)
 	                      "circ": 0} # Circumfixation (or weird change on both sides)
 	
-	allowed_morph_change_types = {"padd", "sadd", "scha", "conv"}
+	allowed_morph_change_types = {"padd", "sadd", "scha", "conv",
+	                              "prem", "pcha", "srem", "circ" # Normally disallowed types, allowed for debugging.
+	                              }
 	
 	def __init__(self, lemma=None, morphs=None, id=None, parent_id=None, parent_lemma=None):
 		self.id = int(id) if id else None
@@ -92,10 +264,10 @@ class Lexeme:
 		self.stem_map = None # A hash with keys "self", "parent", each with a tuple with (start, end) of the common stem (longest common substring) in lemma.
 	
 	def to_string(self):
-		if self.id:
-			return "%d (%s)" % (self.id, self.lemma)
+		if self.id is not None:
+			return "%s (%d)" % (self.lemma, self.id)
 		else:
-			return "from MorfFlex (%s)" % self.lemma
+			return "%s (from MorfFlex)" % self.lemma
 	
 	def is_cycle(self, node):
 		"""Detect whether the parents of node include self, return True if they do, false otherwise.
@@ -126,21 +298,97 @@ class Lexeme:
 		self.parent = parent
 		parent.children.append(self)
 	
-	def detect_stems(self, parent=None):
+	def count_stems_simple(self, tables):
+		"""Find the longest common substring of self.lemma and parent.lemma. Consider that substring to be the stem, and the rest to be prefixes/suffixes. Store counts of the suffixes of self in tables."""
+		
+		# If my own stem map can be filled in, but has not been filled in yet, do it now.
+		if self.parent is not None:
+			if self.stem_map is None:
+				prefix, stem, suffix = self.find_stem_map_simple()
+				tables.add_affix(prefix, suffix, 1.0)
+			else:
+				logger.warn("Stem map of lexeme '%s' has already been filled in.", self.lemma)
+	
+	def map_stem(self, tables, child_stem, new_tables, prob_modifier):
+		"""Maps the string argument stem to self.lemma in the best way possible. The whole stem is covered by the mapping, the lemma not necessarilly. Returns the probability of the mapping (not taking the prob_modifier into account) and updates new_tables (taking the prob_modifier into account)."""
+		
+		prob = 0.0
+		for stem_start in range(len(self.lemma)):
+			for stem_end in range(len(self.lemma), stem_start, -1):
+				prefix, stem, suffix = divide_string(self.lemma, stem_start, stem_end)
+				prob = max(prob, map_strings(tables, stem, child_stem, new_tables, prob_modifier))
+				#prob += map_strings(tables, stem, child_stem, new_tables, prob_modifier)
+		
+		assert prob >= 0.0 and prob <= 1.0, "Probability of stem mapping {} -> {} is out of bounds ({}).".format(self.lemma, child_stem, prob)
+		
+		return prob
+	
+	def estimate_probabilities(self, tables, new_tables):
+		best_prob = -1.0
+		for child_stem_start in range(len(self.lemma)):
+			for child_stem_end in range(len(self.lemma), child_stem_start, -1):
+				child_prefix, child_stem, child_suffix = divide_string(self.lemma, child_stem_start, child_stem_end)
+				
+				# TODO when the prefix is unknown, take the next smallest known suffix and multiply it by a discount based on the length difference.
+				#  That may prevent probability collapse caused by the roots – attempting to find the best root will always find the smallest one,
+				#  because there, the length actually plays a role.
+				#  Or rather, perform some smoothing.
+				child_affix_prob = tables.get_affix_prob(child_prefix, child_suffix)
+				
+				
+				# Find the stem probability by examining the letter changes.
+				if self.parent is None:
+					child_stem_changes_prob = 1.0 # TODO write a language model that estimates the stem probability without needing the parent.
+					# FIXME if the stem prob. is always 1.0, it deletes one of the driving forces
+					#  from the equation. The other driving force, from the affixes, is then unconstrained.
+					#  That means the most probable affix (i suspect the empty affixes) being chosen.
+					#  We should at least constrain it by stem length.
+					#  But how to estimate the penalty?
+				else:
+					child_stem_changes_prob = self.parent.map_stem(tables, child_stem, new_tables, child_affix_prob)
+				
+				child_stem_prob = child_stem_changes_prob
+				
+				
+				# FIXME right now, the probability is p(seen prefix) * p(stem maps to parent) * p(seen suffix). This is imbalanced and leads to spurious splits (esp. spurious prefixes).
+				#  Solution: probability should be p(seen prefix) * p(seen stem) * p(seen suffix) * p(prefix does not map to parent) * p(stem maps to parent) * p(suffix does not map to parent)
+				#  = p(seen prefix) * p(seen stem) * p(seen suffix) * (1 - p(prefix maps to parent)) * p(stem maps to parent) * (1 - p(suffix maps to parent))
+				#   NO! p(seen stem) should be almost constantly zero. Only words that share a parent may have the same stem.
+				#   Therefore, it should be p(seen prefix) * p(seen suffix) * (1 - p(prefix maps to parent)) * p(stem maps to parent) * (1 - p(suffix maps to parent))
+				word_prob = child_stem_prob * child_affix_prob
+				
+				new_tables.add_affix(child_prefix, child_suffix, word_prob)
+				
+				if word_prob > best_prob:
+					logger.debug("Dividing '%s-%s-%s'.\tp(stem) = %e, p(affix) = %e, p(word) = %e", child_prefix, child_stem, child_suffix, child_stem_prob, child_affix_prob, word_prob)
+					best_prob = word_prob
+					# TODO propagate the probabilities through the entire program.
+					# FIXME don't overwrite the previous bounds, just add to them.
+					#       But add inteligently, so that you don't pile up multiple stem alternatives.
+					self.morph_bounds = {0, child_stem_start, child_stem_end, len(self.lemma)}
+		
+		assert best_prob >= 0.0 and best_prob <= 1.0, "Best found p(%s) = %e is out of bounds." % (self.lemma, best_prob)
+		
+		return best_prob
+		
+	
+	def find_stem_map_simple(self, parent=None):
 		"""Look at the lemma of self and parent and try to detect any morph changes between the two.
 		If there are any, set the appropriate morph bounds.
-		If parent is None, use self.parent instead."""
+		If parent is None, use self.parent instead.
+		Return the obtained prefix, stem and suffix of self.lemma."""
 		
 		if parent is None:
 			parent = self.parent
 		
 		if parent is None:
-			logger.debug("Trying to detect morph bounds of %d (%s), which has no parent!", self.id, self.lemma)
-			return
+			logger.warn("Trying to detect morph bounds of %s, which has no parent!", self.to_string())
+			return None, None, None
 		
 		plemma = parent.lemma
 		slemma = self.lemma
 		stem_start_parent, stem_start_self, stem_length = longest_common_substring_position(plemma.lower(), slemma.lower())
+		# FIXME what if there is no common substring? stem_length can be zero. Fix that with a special code case.
 		
 		bounds_self = (stem_start_self, stem_start_self + stem_length)
 		bounds_parent = (stem_start_parent, stem_start_parent + stem_length)
@@ -209,6 +457,8 @@ class Lexeme:
 		else:
 			logger.debug("Divided by %s: '%s' → '%s' (spurious, not saving)", morph_change_type, "/".join(psegments), "/".join(ssegments))
 			pass
+		
+		return sprefix, sstem, ssuffix
 	
 	def copy_morph_bounds(self, parent=None):
 		"""Propagate the morph bounds from parent to self. If parent is None, use self.parent instead."""

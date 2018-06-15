@@ -9,6 +9,7 @@ import gzip
 import lzma
 
 from lexeme import Lexeme
+from prob_tables import ProbTables
 
 # Load MorphoDiTa if available, otherwise fail silently.
 # MorphoDiTa availability must be tested anywhere it is used in the program!
@@ -20,6 +21,7 @@ except ImportError:
 	pass
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def techlemma_to_lemma(techlemma):
@@ -27,6 +29,8 @@ def techlemma_to_lemma(techlemma):
 	shortlemma = re.sub("[_`].+", "", techlemma)
 	lemma = re.sub("-\d+$", "", shortlemma)
 	return lemma
+
+
 
 class MorfFlexParser:
 	def __init__(self, morfflex_file_name, derinet_db):
@@ -72,7 +76,10 @@ class DeriNetParser:
 		self.filehandle = None
 	
 	def __enter__(self):
-		self.filehandle = gzip.open(self.filename, "rt", newline='\n')
+		if self.filename.endswith(".gz"):
+			self.filehandle = gzip.open(self.filename, "rt", newline='\n')
+		else:
+			self.filehandle = open(self.filename, "rt", newline='\n')
 		return self
 	
 	def __exit__(self, exc_type, exc_value, traceback):
@@ -149,6 +156,9 @@ class DeriNetDatabase:
 	def iter(self):
 		for lexeme in self.id_to_lexeme.values():
 			yield lexeme
+	
+	def __len__(self):
+		return len(self.id_to_lexeme)
 
 
 class MorfFlexDatabase:
@@ -195,10 +205,13 @@ class MorfFlexDatabase:
 		for lexeme in self.lexemes:
 			if not lexeme.parent:
 				yield lexeme
-		
+	
+	def __len__(self):
+		return len(self.lexemes)
+
 
 class Segmentace:
-	def __init__(self, derinet_file_name, morfflex_file_name, morpho_file_name):
+	def __init__(self, derinet_file_name, morfflex_file_name, morpho_file_name, em_threshold):
 		logger.info("Loading derivations.")
 		derinet_db = DeriNetDatabase(derinet_file_name)
 		logger.info("Derivations loaded.")
@@ -211,10 +224,16 @@ class Segmentace:
 			logger.info("Not loading inflections.")
 			db = derinet_db
 		
-		logger.info("Detecting stem bounds.")
-		
+		logger.info("Detecting stem bounds step 1: Simple detection.")
+		tables = ProbTables(0.0, 0.1)
 		for node in db.iter():
-			node.detect_stems()
+			node.count_stems_simple(tables)
+		#tables.normalize_affix_counts() # Don't use tables.finalize() here, because there are no changes.
+		tables.finalize()
+		
+		logger.info("Detecting stem bounds step 2: Probabilistic detection.")
+		# TODO this step is both expectation and maximization.
+		self.em_loop(db, tables, em_threshold)
 		
 		logger.info("Stem bounds detected.")
 		logger.info("Propagating morph bounds.")
@@ -246,9 +265,67 @@ class Segmentace:
 		self.db = db
 		self.tagger = tagger
 		self.lemmas = lemmas
+		self.sents = 0
+		self.words = 0
+		self.oov_words = 0
+		self.morphs = 0
+		self.em_threshold = em_threshold
+	
+	def estimate_all_probabilities(self, db, tables, new_tables):
+		score = 0.0
+		for node in db.iter():
+			new_score = node.estimate_probabilities(tables, new_tables)
+			score += new_score
+		return score
+	
+	def em_loop(self, db, initial_tables, em_threshold):
+		"""Expectation-Maximization loop over stem and affix probabilities."""
+		max_iter = 3 # TODO
+		pretrain_smoothing = [0.1, 0.001]
+		
+		with open("prob-tables-0-init.txt", "wt") as f:
+			print(initial_tables, file=f)
+		
+		tables = initial_tables
+		
+		for i, smoothing_strength in enumerate(pretrain_smoothing):
+			new_tables = ProbTables(change_default=smoothing_strength)
+			
+			score = self.estimate_all_probabilities(db, tables, new_tables)
+			
+			new_tables.finalize()
+			tables = new_tables
+			
+			with open("prob-tables-{}-pretrain.txt".format(i + 1), "wt") as f:
+				print(new_tables, file=f)
+			
+			logger.info("Pretrain EM Loop finished with score %.2f, prob %.2f %%.", score, (100.0 * score / len(db)))
+		
+		last_score = 0.0
+		score = em_threshold + 1.0
+		
+		#while last_score + em_threshold < score:
+		for i in range(max_iter):
+			last_score = score
+			
+			#new_prefix_counts = defaultdict(lambda: 1.0/last_score)
+			#new_suffix_counts = defaultdict(lambda: 1.0/last_score)
+			new_tables = ProbTables()
+			
+			score = self.estimate_all_probabilities(db, tables, new_tables)
+			
+			new_tables.finalize()
+			tables = new_tables
+			
+			with open("prob-tables-{}-train.txt".format(i + len(pretrain_smoothing) + 1), "wt") as f:
+				print(new_tables, file=f)
+			
+			logger.info("EM Loop finished with score %.2f, prob %.2f %%.", score, (100.0 * score / len(db)))
 	
 	def segment_word(self, word, analysis=None):
-		"""Takes a string representation of the word form to segment and (optionally) its analysis (Lemma) returned by MorphoDiTa. Returns a list of strings representing the individual morphs of the word."""
+		"""Takes a string representation of the word form to segment and (optionally) its analysis (of class Lemma) returned by MorphoDiTa. Returns a list of strings representing the individual morphs of the word."""
+		self.words += 1
+		
 		node = None
 		parent_node = None
 		
@@ -265,18 +342,28 @@ class Segmentace:
 				# Create a new node for the word and propagate the bounds to it.
 				parent_node = parent_nodes[0]
 				node = Lexeme(word, parent_lemma=lemma)
-				node.detect_stems(parent_node)
+				node.find_stem_map_simple(parent_node)
 				node.copy_morph_bounds(parent_node)
+			else:
+				# TODO analyze at least the difference between the word and its lemma.
+				pass
 		
 		if node:
-			return node.morphs()
+			morphs = node.morphs()
+			self.morphs += len(morphs)
+			return morphs
 		else:
 			# If all else fails, consider the word to be a single morph.
 			logger.debug("Word '%s' not recognized. No segmentation given.", word)
+			self.oov_words += 1
+			self.morphs += 1
 			return [word]
 		
 	
 	def segment_sentence(self, input_sentence):
+		"""Takes a sentence as returned by SegmentedLoader and returns a sentence in the same format, but with words segmented into morphs. Any original segmentation is discarded first."""
+		self.sents += 1
+		
 		words = ["".join(morphs) for morphs in input_sentence]
 		output_sentence = []
 		
