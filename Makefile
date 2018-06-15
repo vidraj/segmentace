@@ -20,7 +20,7 @@ TRAIN_CORPUS-cs-iso::=wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
 TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 
 MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tagger
-DERINET::=derinet-1-4.tsv.gz
+DERINET::=derinet-1-5-1.tsv.gz
 
 all: stats-derinet-morphodita-cs.txt
 
