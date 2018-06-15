@@ -23,8 +23,10 @@ MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tag
 DERINET::=derinet-1-5-1.tsv.gz
 MORFFLEX::=~/škola/svn/derinet/tools/data-api/perl-derivmorpho/data/morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
 
-all: stats-derinet-morphodita-cs.txt
+DATE::=$(shell date '+%Y-%m-%d-%H-%M-%S')
 
+# all: stats-derinet-morphodita-cs.txt
+all: precision-recall-derinet-$(DATE).txt
 
 plot: pref-A-count-histogram.png pref-D-count-histogram.png pref-N-count-histogram.png pref-V-count-histogram.png
 plot: suf-A-count-histogram.png suf-D-count-histogram.png suf-N-count-histogram.png suf-V-count-histogram.png
@@ -110,10 +112,10 @@ stats-corpus-%.txt: $(DATA_SOURCE)
 	zcat $(TRAIN_CORPUS-$*) | ./segmentation-statistics.py -f spl > "$@"
 
 
-gold-predicted-derinet.txt: $(GOLD_STANDARD_DATA) $(DERINET) segment-by-derinet.py
+gold-predicted-derinet-$(DATE).txt: $(GOLD_STANDARD_DATA) $(DERINET) segment-by-derinet.py
 	sed -e 's/ //g' < "$<" | "${PYTHON}" ./segment-by-derinet.py -f spl -t hmorph "$(DERINET)" > "$@"
 
-precision-recall-derinet.txt: gold-predicted-derinet.txt measure-precision-recall.py $(GOLD_STANDARD_DATA)
+precision-recall-derinet-$(DATE).txt: gold-predicted-derinet-$(DATE).txt measure-precision-recall.py $(GOLD_STANDARD_DATA)
 	echo -n 'Stats measured on $(GOLD_STANDARD_DATA) on ' > "$@"
 	date >> "$@"
 	"${PYTHON}" ./measure-precision-recall.py -f hmorph "$(GOLD_STANDARD_DATA)" < "$<" >> "$@"
