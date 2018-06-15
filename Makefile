@@ -4,6 +4,12 @@
 # .PRECIOUS:
 .SECONDARY:
 
+# If PYTHON is undefined, set it to pypy3 or python3, whichever comes first.
+ifeq ($(origin PYTHON), undefined)
+    PYTHON::=$(shell { command -v pypy3 || command -v python3 ; } 2>/dev/null)
+endif
+
+
 MORFESSOR_MODEL::=morfessor-model
 
 DATA_SOURCE::=wmt17-nmt-training-task-package/README wmt17-nmt-training-task-package/train.cs.iso8859-2.txt
@@ -40,7 +46,7 @@ morfessor-model-%.bin: $(DATA_SOURCE)
 	ulimit -t unlimited && nice -n 19 morfessor -t $(TRAIN_CORPUS-$*) -s "$@" -x "lexicon-$*.txt" --logfile "morfessor-train-$*-log.txt"
 
 segments-morfessor-%.txt: morfessor-vocab-%.txt $(DATA_SOURCE)
-	zcat $(TRAIN_CORPUS-$*) | ./reconstruct-sentences.py "$<" > "$@"
+	zcat $(TRAIN_CORPUS-$*) | "${PYTHON}" ./reconstruct-sentences.py "$<" > "$@"
 
 wmt17-nmt-training-task-package.tgz:
 	wget -O "$@" 'http://data.statmt.org/wmt17/nmt-training-task/wmt17-nmt-training-task-package.tgz'
@@ -78,32 +84,32 @@ $(DERINET):
 
 
 segments-derinet-cs.txt: $(DATA_SOURCE) $(DERINET)
-	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph $(DERINET) > "$@"
+	zcat $(TRAIN_CORPUS-cs) | "${PYTHON}" ./segment-by-derinet.py --from spl --to hmorph $(DERINET) > "$@"
 
 segments-derinet-morphodita-cs.txt: $(DATA_SOURCE) $(DERINET) czech-morfflex-pdt-161115/README
-	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -a "$(MORPHO_TAGGER)" > "$@"
+	zcat $(TRAIN_CORPUS-cs) | "${PYTHON}" ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -a "$(MORPHO_TAGGER)" > "$@"
 
 segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) $(DERINET) morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
-	zcat $(TRAIN_CORPUS-cs) | ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
+	zcat $(TRAIN_CORPUS-cs) | "${PYTHON}" ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
 
 
 stats-bpe-%.txt: segments-bpe-%.txt segmentation-statistics.py
-	./segmentation-statistics.py -f hbpe < "$<" > "$@"
+	"${PYTHON}" ./segmentation-statistics.py -f hbpe < "$<" > "$@"
 stats-morfessor-%.txt: segments-morfessor-%.txt segmentation-statistics.py
-	./segmentation-statistics.py -f hmorph < "$<" > "$@"
+	"${PYTHON}" ./segmentation-statistics.py -f hmorph < "$<" > "$@"
 stats-derinet-%.txt: segments-derinet-%.txt segmentation-statistics.py
-	./segmentation-statistics.py -f hmorph < "$<" > "$@"
+	"${PYTHON}" ./segmentation-statistics.py -f hmorph < "$<" > "$@"
 stats-corpus-%.txt: $(DATA_SOURCE)
 	zcat $(TRAIN_CORPUS-$*) | ./segmentation-statistics.py -f spl > "$@"
 
 
 gold-predicted-derinet.txt: $(GOLD_STANDARD_DATA) $(DERINET) segment-by-derinet.py
-	sed -e 's/ //g' < "$<" | ./segment-by-derinet.py -f spl -t hmorph "$(DERINET)" > "$@"
+	sed -e 's/ //g' < "$<" | "${PYTHON}" ./segment-by-derinet.py -f spl -t hmorph "$(DERINET)" > "$@"
 
 precision-recall-derinet.txt: gold-predicted-derinet.txt measure-precision-recall.py $(GOLD_STANDARD_DATA)
 	echo -n 'Stats measured on $(GOLD_STANDARD_DATA) on ' > "$@"
 	date >> "$@"
-	./measure-precision-recall.py -f hmorph "$(GOLD_STANDARD_DATA)" < "$<" >> "$@"
+	"${PYTHON}" ./measure-precision-recall.py -f hmorph "$(GOLD_STANDARD_DATA)" < "$<" >> "$@"
 
 gold-standard-data.txt:
 	@echo -e 'Sorry, our evaluation dataset cannot be published due to licensing restrictions.\nYou will have to provide your own. We apologize for the inconvenience.'
