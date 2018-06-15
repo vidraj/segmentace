@@ -1,4 +1,4 @@
-.PHONY: all compare download clean
+.PHONY: all compare download clean plot
 
 # Never ever remove any intermediate files.
 # .PRECIOUS:
@@ -24,6 +24,12 @@ DERINET::=derinet-1-5-1.tsv.gz
 MORFFLEX::=~/škola/svn/derinet/tools/data-api/perl-derivmorpho/data/morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
 
 all: stats-derinet-morphodita-cs.txt
+
+
+plot: pref-A-count-histogram.png pref-D-count-histogram.png pref-N-count-histogram.png pref-V-count-histogram.png
+plot: suf-A-count-histogram.png suf-D-count-histogram.png suf-N-count-histogram.png suf-V-count-histogram.png
+plot: pref-A-coverage.png pref-D-coverage.png pref-N-coverage.png pref-V-coverage.png
+plot: suf-A-coverage.png suf-D-coverage.png suf-N-coverage.png suf-V-coverage.png
 
 compare: stats-morfessor-cs.txt stats-morfessor-en.txt # stats-affisix-cs-iso.txt
 compare: stats-derinet-morphodita-cs.txt
@@ -116,6 +122,33 @@ gold-standard-data.txt:
 	@echo -e 'Sorry, our evaluation dataset cannot be published due to licensing restrictions.\nYou will have to provide your own. We apologize for the inconvenience.'
 	false
 
+
+%-count-histogram.png: %.tsv plot-affix-count-histogram.gp
+	# TODO convert the gnuplot script to accept STDIN and paremetrize the output name.
+	gnuplot -c plot-affix-count-histogram.gp "$<" > "$@"
+	#gnuplot plot-affix-count-histogram.gp
+
+%-coverage.png: %-coverage.tsv plot-affix-coverage.gp
+	gnuplot -c plot-affix-coverage.gp "$<" > "$@"
+
+pref-%.tsv: morfflex-filtered.tsv.xz list-morfflex-affixes.py
+	xzcat -vv "$<" | grep "	$*.*	" | "${PYTHON}" ./list-morfflex-affixes.py "pref-$*.tsv" "suf-$*.tsv"
+
+%-coverage.tsv: %.tsv
+	# I use "read line && cut" instead of "read suffix count", because suffix
+	#  may be empty and then the Bourne shell ignores the first TAB on the line,
+	# reads the count as the suffix and leaves count empty.
+	total=`cut -f 2 "$<" | paste -sd+ | bc`; \
+	partial='0'; \
+	while IFS= read -r line; do \
+		count=`echo "$${line}" | cut -f 2`; \
+		partial=`echo "$${partial}" + "$${count}" | bc`; \
+		echo 100 \
+		     \* \
+		     "$${partial}" \
+		     / \
+		     "$${total}" | bc -l; \
+	done < "$<" | paste "$<" - > "$@"
 
 techlemmas-from-derinet.txt: $(DERINET)
 	zcat "$<" | cut -f3 > "$@"
