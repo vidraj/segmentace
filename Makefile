@@ -21,6 +21,7 @@ TRAIN_CORPUS-en::=wmt17-nmt-training-task-package/train.en.gz
 
 MORPHO_TAGGER::=czech-morfflex-pdt-161115/czech-morfflex-pdt-161115-pos_only.tagger
 DERINET::=derinet-1-5-1.tsv.gz
+MORFFLEX::=~/škola/svn/derinet/tools/data-api/perl-derivmorpho/data/morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
 
 all: stats-derinet-morphodita-cs.txt
 
@@ -89,8 +90,8 @@ segments-derinet-cs.txt: $(DATA_SOURCE) $(DERINET)
 segments-derinet-morphodita-cs.txt: $(DATA_SOURCE) $(DERINET) czech-morfflex-pdt-161115/README
 	zcat $(TRAIN_CORPUS-cs) | "${PYTHON}" ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -a "$(MORPHO_TAGGER)" > "$@"
 
-segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) $(DERINET) morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz
-	zcat $(TRAIN_CORPUS-cs) | "${PYTHON}" ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -m morfflex-cz.2016-11-15.utf8.lemmaID_suff-tag-form.tab.csv.xz > "$@"
+segments-derinet-morfflex-cs.txt: $(DATA_SOURCE) $(DERINET) morfflex-filtered.tsv.xz
+	zcat $(TRAIN_CORPUS-cs) | "${PYTHON}" ./segment-by-derinet.py --from spl --to hmorph $(DERINET) -m morfflex-filtered.tsv.xz > "$@"
 
 
 stats-bpe-%.txt: segments-bpe-%.txt segmentation-statistics.py
@@ -115,6 +116,18 @@ gold-standard-data.txt:
 	@echo -e 'Sorry, our evaluation dataset cannot be published due to licensing restrictions.\nYou will have to provide your own. We apologize for the inconvenience.'
 	false
 
+
+techlemmas-from-derinet.txt: $(DERINET)
+	zcat "$<" | cut -f3 > "$@"
+
+morfflex-filtered.tsv.xz: $(MORFFLEX) techlemmas-from-derinet.txt
+	# Filter only those lemma-POS combinations that are in DeriNet.
+	# We want to do this because of lemma-form pairs such as A → ampér.
+	# Also, abbreviations, numerals and other weirdness.
+	# The pipeline below is not perfect, since it could theoretically happen
+	#  that a techlemma from DeriNet happens to exactly match a form from
+	#  MorfFlex which has a different lemma.
+	xzcat -vv "$<" | grep -E '	[ADNV].{14}	' | grep -Fwf techlemmas-from-derinet.txt | xz -c - > "$@"
 
 clean:
 # 	rm -rf wmt17-nmt-training-task-package wmt17-nmt-training-task-package.tgz
