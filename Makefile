@@ -130,6 +130,10 @@ gold-standard-data.txt:
 	false
 
 
+trigram-entropy-%.txt: segments-% lm.pl
+	# This tool requires a vertical data format – single word per line.
+	./lm.pl <(head -n 50000 "$<") <(tail -n +50001 "$<" | head -n 20000) <(tail -n 70000 "$<") > "$@"
+
 %-count-histogram.png: %.tsv plot-affix-count-histogram.gp
 	# TODO convert the gnuplot script to accept STDIN and paremetrize the output name.
 	gnuplot -c plot-affix-count-histogram.gp "$<" > "$@"
