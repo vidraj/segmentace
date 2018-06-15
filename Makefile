@@ -165,13 +165,10 @@ techlemmas-from-derinet.txt: $(DERINET)
 	zcat "$<" | cut -f3 > "$@"
 
 morfflex-filtered.tsv.xz: $(MORFFLEX) techlemmas-from-derinet.txt
-	# Filter only those lemma-POS combinations that are in DeriNet.
+	# Filter only those lines from MorfFlex that are in DeriNet and have [ADNV] POS.
 	# We want to do this because of lemma-form pairs such as A → ampér.
 	# Also, abbreviations, numerals and other weirdness.
-	# The pipeline below is not perfect, since it could theoretically happen
-	#  that a techlemma from DeriNet happens to exactly match a form from
-	#  MorfFlex which has a different lemma.
-	xzcat -vv "$<" | grep -E '	[ADNV].{14}	' | grep -Fwf techlemmas-from-derinet.txt | xz -c - > "$@"
+	xzcat -vv "$<" | grep -E '	[ADNV].{14}	' | "${PYTHON}" ./filter-morfflex-lemmas.py techlemmas-from-derinet.txt | xz -c - > "$@"
 
 clean:
 # 	rm -rf wmt17-nmt-training-task-package wmt17-nmt-training-task-package.tgz
