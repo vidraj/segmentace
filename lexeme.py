@@ -61,12 +61,12 @@ def extend_hypothesis(tables, hypothesis, f, t):
 	change_prob = tables.get_change_prob(f, t)
 	if hypothesis is not None:
 		# Extend the existing hypothesis with the change.
-		return (hypothesis[0] + [change], hypothesis[1] * change_prob)
+		return (hypothesis[0] * change_prob, hypothesis[1] + [change])
 	else:
-		return ([change], change_prob)
+		return (change_prob, [change])
 
 def init_hypotheses():
-	return ((tuple(), 1.0), )
+	return ((1.0, tuple()), )
 
 def extend_hypotheses(tables, hypotheses, f, t):
 	assert hypotheses, "Hypotheses must not be empty; use init_hypotheses first."
@@ -74,7 +74,7 @@ def extend_hypotheses(tables, hypotheses, f, t):
 	change_prob = tables.get_change_prob(f, t)
 	
 	# Extend the existing hypothesis with the change.
-	return tuple((changes + (change, ), prob * change_prob) for changes, prob in hypotheses)
+	return tuple((prob * change_prob, changes + (change, )) for prob, changes in hypotheses)
 
 def generate_string_mapping_hypotheses(tables, parent_stem, child_stem, hypothesis, allowed_map_types):
 	if not parent_stem and not child_stem:
@@ -105,7 +105,7 @@ def generate_string_mapping_hypotheses(tables, parent_stem, child_stem, hypothes
 def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 	# I need an algorithm to walk all possibilities and add the final probabilities to new_tables.
 	total_prob = 0.0
-	for hypothesis, prob in generate_string_mapping_hypotheses(tables, parent_stem, child_stem, None, {INS, DEL, SUB}):
+	for prob, hypothesis in generate_string_mapping_hypotheses(tables, parent_stem, child_stem, None, {INS, DEL, SUB}):
 		#print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
 		modified_prob = prob * prob_modifier
 		total_prob += prob
@@ -148,7 +148,7 @@ def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 	## The bottom right corner contains the hypothesis list. Calculate the final prob from it.
 	## Beware that the lines have been swapped at the end of the last cycle, so the bottom right corner is in prev_line.
 	#total_prob = 0.0
-	#for hypothesis, prob in prev_line[-1]:
+	#for prob, hypothesis in prev_line[-1]:
 		##print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
 		#modified_prob = prob * prob_modifier
 		#total_prob += prob
@@ -163,6 +163,9 @@ def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 	
 	#assert len(parent_stem) >= 1, "The parent stem must not be empty."
 	#assert len(child_stem) >= 1, "The child stem must not be empty."
+	
+	## TODO enlarge the window dynamically if we map a very short stem to a very long one, so that we can reach the start from the first character and the end from the last one.
+	## TODO and make sure that the windows overlap between steps.
 	
 	## Initialize the first row.
 	#prev_line = [None] * (len(child_stem) + 1)
@@ -203,7 +206,7 @@ def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 	## Beware that the lines have been swapped at the end of the last cycle, so the bottom right corner is in prev_line.
 	## That one item should definitely be in the window, so it should never be None.
 	#total_prob = 0.0
-	#for hypothesis, prob in prev_line[-1]:
+	#for prob, hypothesis in prev_line[-1]:
 		##print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
 		#modified_prob = prob * prob_modifier
 		#total_prob += prob
