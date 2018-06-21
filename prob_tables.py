@@ -1,93 +1,154 @@
 from collections import defaultdict
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class ProbTables:
-	__slots__ = "prefix_counts", "prefix_probs", "prefix_default_count", "prefix_default_prob", "prefix_total", "suffix_counts", "suffix_probs", "suffix_default_count", "suffix_default_prob", "suffix_total", "change_counts", "change_probs", "change_default", "change_insertions", "change_deletions", "change_substitutions"
+	__slots__ = "affix_counts", "affix_probs", "affix_default_count", "change_counts", "change_probs", "change_default", "change_sub_default", "change_ins_default", "change_del_default", "change_insertions", "change_deletions", "change_substitutions"
 	
-	def __init__(self, affix_defaults=0.0, change_default=0.00001):
-		self.prefix_counts = defaultdict(float)
-		self.prefix_probs = None
-		self.prefix_default_count = affix_defaults
-		self.prefix_default_prob = None
-		self.prefix_total = 0.0
+	def __init__(self, affix_default=0.0, change_default=0.00001):
+		self.affix_counts = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(float))))
+		self.affix_probs = None
+		self.affix_default_count = affix_default
 
-		self.suffix_counts = defaultdict(float)
-		self.suffix_probs = None
-		self.suffix_default_count = affix_defaults
-		self.suffix_default_prob = None
-		self.suffix_total = 0.0
-
-		self.change_counts = defaultdict(lambda: defaultdict(float))
+		self.change_counts = {"sub": defaultdict(lambda: defaultdict(float)),
+		                      "ins": defaultdict(float),
+		                      "del": defaultdict(float)}
 		self.change_probs = None
 		self.change_default = change_default
 		self.change_insertions = 0
 		self.change_deletions = 0
 		self.change_substitutions = 0
 	
+	def __str__(self):
+		return "Affix counts: {}, affix probs: {}, affix_default_count: {}, change_counts: {}, change_probs: {}, change_default: {}, change_sub_default: {}, change_ins_default: {}, change_del_default: {}, change_insertions: {}, change_deletions: {}, change_substitutions: {}".format(str(self.affix_counts), str(self.affix_probs), str(self.affix_default_count), str(self.change_counts), str(self.change_probs), str(self.change_default), str(self.change_sub_default), str(self.change_ins_default), str(self.change_del_default), str(self.change_insertions), str(self.change_deletions), str(self.change_substitutions))
+	
 	def finalize(self):
 		"""Transform the accumulated counts into probs."""
 		self.normalize_change_counts()
 		self.change_counts = None
 		self.normalize_affix_counts()
-		self.prefix_counts = None
-		self.suffix_counts = None
+		self.affix_counts = None
 	
 	def normalize_change_counts(self):
 		# TODO the deletions are further normalized by prevalence. We should normalize the other components as well by the residual amount.
 		# TODO normalize properly for the Add-lambda smoothing. We should add the lambda to each type (and to the total once for each type) and to the total once more for the unseen type.
+		
+		# FIXME normalize the changes and insertions and deletions separetely.
+		# FIXME normalize correctly. The tricks with hard integer counts of the various types don't work, because the counts are given by the structure and don't change with iterations. But in reality, I'd like deletions and insertions to become rarer and rarer as time progresses.
+		#  I'll have to deduce the correct equations from the laws of probability.
 
-		normalized_counts = defaultdict(dict)
-		for f, options in self.change_counts.items():
-			normalizer_nominator = sum(options.values())
-			if normalizer_nominator <= 0.0:
-				# Prevent a divide-by-zero.
-				# Skip the update here, effectively resetting all transforms from f
-				#  to the default (smoothed) value.
-				# TODO this may not be exactly what we want.
-				logger.warn("Normalizer nominator of '%s' is %f.", f, normalizer_nominator)
-				continue
-			normalizer = 1.0 / sum(options.values())
-			#print("Normalizer for {} is {}.".format(f, normalizer))
-			normalized_counts[f] = {t: count * normalizer for t, count in options.items()}
-
-		if (self.change_insertions + self.change_deletions + self.change_substitutions) > 0:
-			# Some changes were recorded. Proceed – otherwise bail out of this step because of a division-by-zero.
-			# Further discount deletions by their prevalence in the data.
-			insertions_normalizer = self.change_insertions / (self.change_insertions + self.change_deletions + self.change_substitutions)
-			normalized_counts[""] = {t: prob * insertions_normalizer for t, prob in normalized_counts[""].items()}
-
-		self.change_probs = normalized_counts
+		self.change_probs = {"sub": defaultdict(dict),
+		                     "ins": {},
+		                     "del": {}}
+		
+		changes_total = self.change_insertions + self.change_deletions + self.change_substitutions
+		if changes_total > 0:
+			# There are some recorded changes. Normalize them. (Otherwise do nothing to prevent division-by-zero errors.
+			
+			# Normalize substitutions.
+			substitution_prevalence = self.change_substitutions / changes_total
+			for f, options in self.change_counts["sub"].items():
+				normalizer_nominator = sum(options.values())
+				if normalizer_nominator <= 0.0:
+					# Prevent a divide-by-zero.
+					# Skip the update here, effectively resetting all transforms from f
+					#  to the default (smoothed) value.
+					# TODO this may not be exactly what we want.
+					logger.warn("Normalizer nominator of '%s' is %f.", f, normalizer_nominator)
+					continue
+				normalizer = substitution_prevalence / normalizer_nominator
+				#logger.debug("Normalizer for {} is {}.".format(f, normalizer))
+				self.change_probs["sub"][f] = {t: count * normalizer for t, count in options.items()}
+			
+			
+			insertion_sum = sum(self.change_counts["ins"].values())
+			if insertion_sum != 0.0:
+				# Normalize insertions.
+				insertion_normalizer = self.change_insertions / (changes_total * insertion_sum)
+				self.change_probs["ins"] = {t: count * insertion_normalizer for t, count in self.change_counts["ins"].items()}
+			else:
+				logger.warn("No insertions.")
+				self.change_probs["ins"] = {}
+			
+			
+			deletion_sum = sum(self.change_counts["del"].values())
+			if deletion_sum != 0.0:
+				# Normalize deletions.
+				deletion_normalizer = self.change_deletions / (changes_total * deletion_sum)
+				self.change_probs["del"] = {f: count * deletion_normalizer for f, count in self.change_counts["del"].items()}
+			else:
+				logger.warn("No deletions.")
+				self.change_probs["del"] = {}
+		
+			# TODO normalize the defaults as well.
+			self.change_sub_default = self.change_default * self.change_substitutions / changes_total
+			self.change_ins_default = self.change_default * self.change_insertions / changes_total
+			self.change_del_default = self.change_default * self.change_deletions / changes_total
+		else:
+			# No changes were recorded, the normalizers are unknown. Take the default at its face value.
+			self.change_sub_default = self.change_default
+			self.change_ins_default = self.change_default
+			self.change_del_default = self.change_default
+	
 	
 	def normalize_affix_counts(self):
 		# Normalize with the Add-lambda smoothing – add the default count to each affix type and once more for the unseen type.
-		prefix_normalizer = self.prefix_total + (len(self.prefix_counts) + 1) * self.prefix_default_count
-		self.prefix_probs = {prefix: (count + self.prefix_default_count) / prefix_normalizer for prefix, count in self.prefix_counts.items()}
-		self.prefix_default_prob = self.prefix_default_count / prefix_normalizer
+		total = 0.0
+		type_count = 0
 		
-		suffix_normalizer = self.suffix_total + (len(self.suffix_counts) + 1) * self.suffix_default_count
-		self.suffix_probs = {suffix: (count + self.suffix_default_count) / suffix_normalizer for suffix, count in self.suffix_counts.items()}
-		self.suffix_default_prob = self.suffix_default_count / suffix_normalizer
+		for pprefix, d1 in self.affix_counts.items():
+			for psuffix, d2 in d1.items():
+				for cprefix, d3 in d2.items():
+					for csuffix, count in d3.items():
+						total += count
+						type_count += 1
+		
+		normalizer = 1.0 / (total + (type_count + 1) * self.affix_default_count)
+		default = self.affix_default_count * normalizer
+		
+		self.affix_probs = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: default))))
+		
+		with open("table-normalization", "wt") as f:
+			for pprefix, d1 in self.affix_counts.items():
+				for psuffix, d2 in d1.items():
+					for cprefix, d3 in d2.items():
+						for csuffix, count in d3.items():
+							normalized_count = (count + self.affix_default_count) * normalizer
+							self.affix_probs[pprefix][psuffix][cprefix][csuffix] = normalized_count
+							print("{}\t{}\t{}\t{}\t{} -> {}".format(pprefix, psuffix, cprefix, csuffix, count, normalized_count), file=f)
 
 	def get_change_prob(self, f, t):
-		return self.change_probs[f].get(t, self.change_default)
-	
-	def add_change(self, f, t, prob):
-		self.change_counts[f][t] += prob
 		if f:
 			if t:
-				self.change_substitutions += 1
+				return self.change_probs["sub"][f].get(t, self.change_sub_default)
 			else:
-				self.change_deletions += 1
+				return self.change_probs["del"].get(f, self.change_del_default)
 		else:
 			if t:
-				self.change_insertions += 1
+				return self.change_probs["ins"].get(t, self.change_ins_default)
+			else:
+				raise Exception("Attempted to change a zero string to a zero string.")
+	
+	def add_change(self, f, t, prob):
+		if f:
+			if t:
+				self.change_substitutions += prob
+				self.change_counts["sub"][f][t] += prob
+			else:
+				self.change_counts["del"][f] += prob
+				self.change_deletions += prob
+		else:
+			if t:
+				self.change_counts["ins"][t] += prob
+				self.change_insertions += prob
 			else:
 				raise Exception("Attempted to record a change from a zero string to a zero string.")
 	
-	def get_affix_prob(self, prefix, suffix):
-		return self.prefix_probs.get(prefix, self.prefix_default_prob) * self.suffix_probs.get(suffix, self.suffix_default_prob)
+	def get_affix_prob(self, pprefix, psuffix, cprefix, csuffix):
+		return self.affix_probs[pprefix][psuffix][cprefix][csuffix]
 	
-	def add_affix(self, prefix, suffix, prob):
-		self.prefix_counts[prefix] += prob
-		self.suffix_counts[suffix] += prob
-		self.prefix_total += prob
-		self.suffix_total += prob
+	def add_affix(self, pprefix, psuffix, cprefix, csuffix, prob):
+		assert prob >= 0.0
+		self.affix_counts[pprefix][psuffix][cprefix][csuffix] += prob

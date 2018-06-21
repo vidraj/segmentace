@@ -81,11 +81,6 @@ def generate_string_mapping_hypotheses(tables, parent_stem, child_stem, hypothes
 		assert hypothesis is not None, "Hypothesis must not be None, probably a mapping to an empty string was attempted."
 		yield hypothesis
 	else:
-		# FIXME when we normalize, the probability of anything getting inserted is – of course – normalized to 1. We don't want that!
-		#  Therefore, plug in new probabilities – p(insertion), p(deletion) and p(substitution).
-		# TODO also think about forbidding deletions at the start and end of the parent_stem. We're trying to model these by chopping off affixes.
-		#  But forbidding them is potentially wrong, because these model a different phenomenon. We possibly need both.
-		#  Yes, it would be wrong: Hamburg – hamburský needs deletion at the end of the parent.
 		if SUB in allowed_map_types and parent_stem and child_stem:
 			#print("sub", parent_stem[0], child_stem[0])
 			sub_hypothesis = extend_hypothesis(tables, hypothesis, parent_stem[0], child_stem[0])
@@ -357,68 +352,72 @@ class Lexeme:
 		# If my own stem map can be filled in, but has not been filled in yet, do it now.
 		if self.parent is not None:
 			if self.stem_map is None:
-				prefix, stem, suffix = self.find_stem_map_simple()
-				tables.add_affix(prefix, suffix, 1.0)
+				pprefix, pstem, psuffix, sprefix, sstem, ssuffix = self.find_stem_map_simple()
+				tables.add_affix(pprefix, psuffix, sprefix, ssuffix, 1.0)
 			else:
 				logger.warn("Stem map of lexeme '%s' has already been filled in.", self.lemma)
 	
-	def map_stem(self, tables, child_stem, new_tables, prob_modifier):
-		"""Maps the string argument stem to self.lemma in the best way possible. The whole stem is covered by the mapping, the lemma not necessarilly. Returns the probability of the mapping (not taking the prob_modifier into account) and updates new_tables (taking the prob_modifier into account)."""
-		
-		prob = 0.0
-		for stem_start in range(len(self.lemma)):
-			for stem_end in range(len(self.lemma), stem_start, -1):
-				prefix, stem, suffix = divide_string(self.lemma, stem_start, stem_end)
-				prob = max(prob, map_strings(tables, stem, child_stem, new_tables, prob_modifier))
-				#prob += map_strings(tables, stem, child_stem, new_tables, prob_modifier)
-		
-		assert prob >= 0.0 and prob <= 1.0, "Probability of stem mapping {} -> {} is out of bounds ({}).".format(self.lemma, child_stem, prob)
-		
-		return prob
-	
 	def estimate_probabilities(self, tables, new_tables):
+		if self.parent is None:
+			# We don't attempt to divide roots at all. They will only be divided in the next phase, transitively using the divisions found in their children.
+			return 1.0
+		
 		best_prob = -1.0
 		for child_stem_start in range(len(self.lemma)):
 			for child_stem_end in range(len(self.lemma), child_stem_start, -1):
+				best_parent_mapping_prob = -1.0
+				total_parent_mapping_prob = 0.0
+				best_parent_mapping = None
+				best_debug_info = None
+				
 				child_prefix, child_stem, child_suffix = divide_string(self.lemma, child_stem_start, child_stem_end)
 				
-				# TODO when the prefix is unknown, take the next smallest known suffix and multiply it by a discount based on the length difference.
-				#  That may prevent probability collapse caused by the roots – attempting to find the best root will always find the smallest one,
-				#  because there, the length actually plays a role.
-				#  Or rather, perform some smoothing.
-				child_affix_prob = tables.get_affix_prob(child_prefix, child_suffix)
+				for parent_stem_start in range(len(self.parent.lemma)):
+					for parent_stem_end in range(len(self.parent.lemma), parent_stem_start, -1):
+						parent_prefix, parent_stem, parent_suffix = divide_string(self.parent.lemma, parent_stem_start, parent_stem_end)
 				
+						# TODO when the prefix is unknown, take the next smallest known suffix and multiply it by a discount based on the length difference.
+						#  That may prevent probability collapse caused by the roots – attempting to find the best root will always find the smallest one,
+						#  because there, the length actually plays a role.
+						#  Or rather, perform some smoothing.
+						child_affix_prob = tables.get_affix_prob(parent_prefix, parent_suffix, child_prefix, child_suffix)
+						
+						if child_affix_prob == 0.0:
+							continue
+						
+						child_stem_prob = map_strings(tables, parent_stem, child_stem, new_tables, child_affix_prob)
+						
+						if child_stem_prob == 0.0:
+							continue
+						
+						
+						# FIXME right now, the probability is p(seen prefix) * p(stem maps to parent) * p(seen suffix). This is imbalanced and leads to spurious splits (esp. spurious prefixes).
+						#  Solution: probability should be p(seen prefix) * p(seen stem) * p(seen suffix) * p(prefix does not map to parent) * p(stem maps to parent) * p(suffix does not map to parent)
+						#  = p(seen prefix) * p(seen stem) * p(seen suffix) * (1 - p(prefix maps to parent)) * p(stem maps to parent) * (1 - p(suffix maps to parent))
+						#   NO! p(seen stem) should be almost constantly zero. Only words that share a parent may have the same stem.
+						#   Therefore, it should be p(seen prefix) * p(seen suffix) * (1 - p(prefix maps to parent)) * p(stem maps to parent) * (1 - p(suffix maps to parent))
+						word_prob = child_stem_prob * child_affix_prob
+						
+						new_tables.add_affix(parent_prefix, parent_suffix, child_prefix, child_suffix, word_prob)
+						
+						total_parent_mapping_prob += word_prob
+						if word_prob > best_parent_mapping_prob:
+							#logger.debug("Mapping '%s-%s-%s'.\tp(stem) = %e, p(affix) = %e, p(word) = %e", child_prefix, child_stem, child_suffix, child_stem_prob, child_affix_prob, word_prob)
+							best_debug_info = (child_prefix, child_stem, child_suffix, child_stem_prob, child_affix_prob, word_prob)
+							best_parent_mapping_prob = word_prob
+							best_parent_mapping = {"self": (child_stem_start, child_stem_end),
+							                       "parent": (parent_stem_start, parent_stem_end)}
 				
-				# Find the stem probability by examining the letter changes.
-				if self.parent is None:
-					child_stem_changes_prob = 1.0 # TODO write a language model that estimates the stem probability without needing the parent.
-					# FIXME if the stem prob. is always 1.0, it deletes one of the driving forces
-					#  from the equation. The other driving force, from the affixes, is then unconstrained.
-					#  That means the most probable affix (i suspect the empty affixes) being chosen.
-					#  We should at least constrain it by stem length.
-					#  But how to estimate the penalty?
-				else:
-					child_stem_changes_prob = self.parent.map_stem(tables, child_stem, new_tables, child_affix_prob)
-				
-				child_stem_prob = child_stem_changes_prob
-				
-				
-				# FIXME right now, the probability is p(seen prefix) * p(stem maps to parent) * p(seen suffix). This is imbalanced and leads to spurious splits (esp. spurious prefixes).
-				#  Solution: probability should be p(seen prefix) * p(seen stem) * p(seen suffix) * p(prefix does not map to parent) * p(stem maps to parent) * p(suffix does not map to parent)
-				#  = p(seen prefix) * p(seen stem) * p(seen suffix) * (1 - p(prefix maps to parent)) * p(stem maps to parent) * (1 - p(suffix maps to parent))
-				#   NO! p(seen stem) should be almost constantly zero. Only words that share a parent may have the same stem.
-				#   Therefore, it should be p(seen prefix) * p(seen suffix) * (1 - p(prefix maps to parent)) * p(stem maps to parent) * (1 - p(suffix maps to parent))
-				word_prob = child_stem_prob * child_affix_prob
-				
-				new_tables.add_affix(child_prefix, child_suffix, word_prob)
-				
-				if word_prob > best_prob:
-					logger.debug("Dividing '%s-%s-%s'.\tp(stem) = %e, p(affix) = %e, p(word) = %e", child_prefix, child_stem, child_suffix, child_stem_prob, child_affix_prob, word_prob)
-					best_prob = word_prob
-					# TODO propagate the probabilities through the entire program.
-					# FIXME don't overwrite the previous bounds, just add to them.
-					#       But add inteligently, so that you don't pile up multiple stem alternatives.
-					self.morph_bounds = {0, child_stem_start, child_stem_end, len(self.lemma)}
+				if total_parent_mapping_prob > best_prob:
+					if total_parent_mapping_prob > 0.0:
+						best_prob = total_parent_mapping_prob
+						self.stem_map = best_parent_mapping
+						self.morph_bounds = {0, best_parent_mapping["self"][0], best_parent_mapping["self"][1], len(self.lemma)}
+						logger.debug("Dividing '%s-%s-%s'.\tp(stem) = %e, p(affix) = %e, p(word) = %e", *best_debug_info)
+		
+		if best_prob == -1.0:
+			logger.warn("No segmentation obtained for '%s'.", self.lemma)
+			best_prob = 0.0
 		
 		assert best_prob >= 0.0 and best_prob <= 1.0, "Best found p(%s) = %e is out of bounds." % (self.lemma, best_prob)
 		
@@ -511,7 +510,7 @@ class Lexeme:
 			logger.debug("Divided by %s: '%s' → '%s' (spurious, not saving)", morph_change_type, "/".join(psegments), "/".join(ssegments))
 			pass
 		
-		return sprefix, sstem, ssuffix
+		return pprefix, pstem, psuffix, sprefix, sstem, ssuffix
 	
 	def copy_morph_bounds(self, parent=None):
 		"""Propagate the morph bounds from parent to self. If parent is None, use self.parent instead."""
