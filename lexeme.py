@@ -102,16 +102,15 @@ def generate_string_mapping_hypotheses(tables, parent_stem, child_stem, hypothes
 			yield from generate_string_mapping_hypotheses(tables, parent_stem[1:], child_stem, del_hypothesis, allowed_map_types - {INS})
 
 
-def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
-	# I need an algorithm to walk all possibilities and add the final probabilities to new_tables.
-	total_prob = 0.0
-	for prob, hypothesis in generate_string_mapping_hypotheses(tables, parent_stem, child_stem, None, {INS, DEL, SUB}):
-		#print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
-		modified_prob = prob * prob_modifier
-		total_prob += prob
-		for (f, t) in hypothesis:
-			new_tables.add_change(f, t, modified_prob)
-	return total_prob
+#def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
+	## I need an algorithm to walk all possibilities and add the final probabilities to new_tables.
+	#total_prob = 0.0
+	#for prob, hypothesis in generate_string_mapping_hypotheses(tables, parent_stem, child_stem, None, {INS, DEL, SUB}):
+		##print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
+		#total_prob += prob
+		#for (f, t) in hypothesis:
+			#new_tables.add_change(f, t, prob * prob_modifier)
+	#return total_prob
 #def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 	#"""The complete version of the tabular algorithm, with the 'only keep two lines in memory at once' optimization."""
 	## I need an algorithm to walk all possibilities and add the final probabilities to new_tables.
@@ -213,6 +212,57 @@ def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 		#for (f, t) in hypothesis:
 			#new_tables.add_change(f, t, modified_prob)
 	#return total_prob
+def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
+	"""The complete version of the tabular algorithm, with the 'only keep two lines in memory at once' optimization and n-best-list option culling."""
+	# I need an algorithm to walk all possibilities and add the final probabilities to new_tables.
+	# Table algorithm.
+	
+	# TODO put this into an argument.
+	n_best_limit = 100
+	
+	assert len(parent_stem) >= 1, "The parent stem must not be empty."
+	assert len(child_stem) >= 1, "The child stem must not be empty."
+	
+	# Initialize the first row.
+	prev_line = [None] * (len(child_stem) + 1)
+	prev_line[0] = init_hypotheses() # The initial empty hypothesis.
+	for j in range(1, len(child_stem) + 1):
+		prev_line[j] = extend_hypotheses(tables, prev_line[j - 1], "", child_stem[j - 1])
+	
+	# Initialize the second row, i.e. the one to be filled next.
+	cur_line = [None] * (len(child_stem) + 1)
+	
+	# Fill in the rest of the table.
+	for i in range(1, len(parent_stem) + 1):
+		# Fill in the first item (it is special, because there is only one hypothesis instead of three.
+		cur_line[0] = extend_hypotheses(tables, prev_line[0], parent_stem[i - 1], "")
+		
+		# Fill in the rest of the line.
+		for j in range(1, len(child_stem) + 1):
+			hypotheses = (extend_hypotheses(tables, prev_line[j - 1], parent_stem[i - 1], child_stem[j - 1])
+			            + extend_hypotheses(tables, cur_line[j - 1],  "",                 child_stem[j - 1])
+			            + extend_hypotheses(tables, prev_line[j],     parent_stem[i - 1], ""))
+			cur_line[j] = sorted(hypotheses)[:n_best_limit]
+		
+		# Swap the lines (the filled-in cur_line will be overwritten in the next iteration).
+		tmp = prev_line
+		prev_line = cur_line
+		cur_line = tmp
+	
+	# The bottom right corner contains the hypothesis list. Calculate the final prob from it.
+	# Beware that the lines have been swapped at the end of the last cycle, so the bottom right corner is in prev_line.
+	total_prob = 0.0
+	# TODO normalize probs before updating the counts.
+	#  We assume that there has to be a mapping from parent_stem to child_stem with a probability of prob_modifier.
+	#   FIXME is this correct? Shouldn't we normalize the prob_modifier somewhere first? Across all possible segmentations of a single word? Across all parent segmentation choices? Etc.
+	normalizer = prob_modifier / sum([prob for prob, hypothesis in prev_line[-1]])
+	for prob, hypothesis in prev_line[-1]:
+		#print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
+		modified_prob = prob * normalizer
+		total_prob += prob
+		for (f, t) in hypothesis:
+			new_tables.add_change(f, t, modified_prob)
+	return total_prob
 
 
 
