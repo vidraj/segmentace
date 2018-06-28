@@ -25,6 +25,11 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
+import itertools
+def chunkize(coll, length):
+	iterator = iter(coll)
+	return iter(lambda: tuple(itertools.islice(iterator, length)), ())
+
 def techlemma_to_lemma(techlemma):
 	"""Cut off the technical suffixes from the string techlemma and return the raw lemma"""
 	shortlemma = re.sub("[_`].+", "", techlemma)
