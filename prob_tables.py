@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 class ProbTables:
-	__slots__ = "affix_counts", "affix_probs", "affix_default_count", "change_counts", "change_probs", "change_default", "change_sub_default", "change_ins_default", "change_del_default", "change_insertions", "change_deletions", "change_substitutions"
+	__slots__ = "affix_counts", "affix_probs", "affix_default_count", "affix_default_prob", "change_counts", "change_probs", "change_default", "change_sub_default", "change_ins_default", "change_del_default", "change_insertions", "change_deletions", "change_substitutions"
 	
 	def __init__(self, affix_default=0.0, change_default=0.00001):
 		self.affix_counts = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(float))))
@@ -38,6 +38,14 @@ class ProbTables:
 		# FIXME normalize the changes and insertions and deletions separetely.
 		# FIXME normalize correctly. The tricks with hard integer counts of the various types don't work, because the counts are given by the structure and don't change with iterations. But in reality, I'd like deletions and insertions to become rarer and rarer as time progresses.
 		#  I'll have to deduce the correct equations from the laws of probability.
+		
+		
+		# FIXME how to normalize: If we normalize everything as a joint probability, the resulting probs are too low and mess up the stemming by overpowering the affix probabilities. Everything is then analyzed as the shortest possible stem, even if it requires many deletions.
+		# Therefore, we have to normalize as conditional probability. But there we have a problem with the insertions – they can occur anywhere, so if we normalize them as a group conditioned by \lambda, they will be too common.
+		# A better idea: Consider an insertion to compete with any other change.
+		# So: We normalize insertions by c(ins) / c(everything); we normalize substitutions by c(sub y for x) / (c(sub any for x) + c(del x) + c(ins any)); we normalize deletions by c(del x) / (c(sub any for x) + c(del x) + c(ins any))
+		# TODO should we exclude insertions from the deletion normalization?
+		# TODO maybe a better idea: Consider insertions to be fertility. Therefore, they will be conditioned on a letter – the next one in the parent. Does that help?
 
 		self.change_probs = {"sub": defaultdict(dict),
 		                     "ins": {},
@@ -106,9 +114,12 @@ class ProbTables:
 						type_count += 1
 		
 		normalizer = 1.0 / (total + (type_count + 1) * self.affix_default_count)
-		default = self.affix_default_count * normalizer
+		self.affix_default_prob = self.affix_default_count * normalizer
 		
-		self.affix_probs = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: default))))
+		# Alas, we cannot use defaultdict here, because it allocates all entries upon retrieval, including nonexistent ones, gradually exhausting all available memory.
+		# We want nonexistent entries to stay that way.
+		#self.affix_probs = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: default))))
+		self.affix_probs = {}
 		
 		with open("table-normalization", "wt") as f:
 			for pprefix, d1 in self.affix_counts.items():
@@ -116,7 +127,9 @@ class ProbTables:
 					for cprefix, d3 in d2.items():
 						for csuffix, count in d3.items():
 							normalized_count = (count + self.affix_default_count) * normalizer
-							self.affix_probs[pprefix][psuffix][cprefix][csuffix] = normalized_count
+							# Not a defaultdict, see above.
+							#self.affix_probs[pprefix][psuffix][cprefix][csuffix] = normalized_count
+							self.affix_probs.setdefault(pprefix, {}).setdefault(psuffix, {}).setdefault(cprefix, {})[csuffix] = normalized_count
 							print("{}\t{}\t{}\t{}\t{} -> {}".format(pprefix, psuffix, cprefix, csuffix, count, normalized_count), file=f)
 
 	def get_change_prob(self, f, t):
@@ -134,8 +147,8 @@ class ProbTables:
 	def add_change(self, f, t, prob):
 		if f:
 			if t:
-				self.change_substitutions += prob
 				self.change_counts["sub"][f][t] += prob
+				self.change_substitutions += prob
 			else:
 				self.change_counts["del"][f] += prob
 				self.change_deletions += prob
@@ -147,7 +160,10 @@ class ProbTables:
 				raise Exception("Attempted to record a change from a zero string to a zero string.")
 	
 	def get_affix_prob(self, pprefix, psuffix, cprefix, csuffix):
-		return self.affix_probs[pprefix][psuffix][cprefix][csuffix]
+		if pprefix in self.affix_probs and psuffix in self.affix_probs[pprefix] and cprefix in self.affix_probs[pprefix][psuffix]:
+			return self.affix_probs[pprefix][psuffix][cprefix].get(csuffix, self.affix_default_prob)
+		else:
+			return self.affix_default_prob
 	
 	def add_affix(self, pprefix, psuffix, cprefix, csuffix, prob):
 		assert prob >= 0.0
