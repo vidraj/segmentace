@@ -124,13 +124,17 @@ class DeriNetDatabase:
 		
 		for lexeme in id_to_lexeme.values():
 			if lexeme.parent_id is not None:
-				lexeme.set_parent(id_to_lexeme[lexeme.parent_id])
+				parent = id_to_lexeme.get(lexeme.parent_id)
+				if parent is not None:
+					lexeme.set_parent(parent)
+				else:
+					raise Exception("Parent of '{}' with ID {} not found in the database.".format(lexeme.to_string(), lexeme.parent_id))
 			if lexeme.parent_lemma is not None:
 				parents = lemma_to_lexemes[lexeme.parent_lemma]
 				if parents:
 					lexeme.set_parent(parents[0])
 				else:
-					raise Exception("Parent with lemma '%s' not found in the database." % lemma)
+					raise Exception("Parent of '{}' with lemma '{}' not found in the database.".format(lexeme.to_string(), lemma))
 		
 		self.id_to_lexeme = id_to_lexeme
 		self.lemma_to_lexemes = lemma_to_lexemes
