@@ -371,13 +371,9 @@ class Lexeme:
 			return 1.0
 		
 		best_prob = -1.0
+		hypotheses = []
 		for child_stem_start in range(len(self.lemma)):
 			for child_stem_end in range(len(self.lemma), child_stem_start, -1):
-				best_parent_mapping_prob = -1.0
-				total_parent_mapping_prob = 0.0
-				best_parent_mapping = None
-				best_debug_info = None
-				
 				child_prefix, child_stem, child_suffix = divide_string(self.lemma, child_stem_start, child_stem_end)
 				
 				for parent_stem_start in range(len(self.parent.lemma)):
@@ -391,13 +387,10 @@ class Lexeme:
 						child_affix_prob = tables.get_affix_prob(parent_prefix, parent_suffix, child_prefix, child_suffix)
 						
 						if child_affix_prob == 0.0:
+							# Don't perform the computationally expensive stem mapping, if the word probability will be 0 anyway.
 							continue
 						
 						child_stem_prob = map_strings(tables, parent_stem, child_stem, new_tables, child_affix_prob)
-						
-						if child_stem_prob == 0.0:
-							continue
-						
 						
 						# FIXME right now, the probability is p(seen prefix) * p(stem maps to parent) * p(seen suffix). This is imbalanced and leads to spurious splits (esp. spurious prefixes).
 						#  Solution: probability should be p(seen prefix) * p(seen stem) * p(seen suffix) * p(prefix does not map to parent) * p(stem maps to parent) * p(suffix does not map to parent)
@@ -406,26 +399,26 @@ class Lexeme:
 						#   Therefore, it should be p(seen prefix) * p(seen suffix) * (1 - p(prefix maps to parent)) * p(stem maps to parent) * (1 - p(suffix maps to parent))
 						word_prob = child_stem_prob * child_affix_prob
 						
-						new_tables.add_affix(parent_prefix, parent_suffix, child_prefix, child_suffix, word_prob)
-						
-						total_parent_mapping_prob += word_prob
-						if word_prob > best_parent_mapping_prob:
-							#logger.debug("Mapping '%s-%s-%s'.\tp(stem) = %e, p(affix) = %e, p(word) = %e", child_prefix, child_stem, child_suffix, child_stem_prob, child_affix_prob, word_prob)
-							best_debug_info = (child_prefix, child_stem, child_suffix, child_stem_prob, child_affix_prob, word_prob)
-							best_parent_mapping_prob = word_prob
-							best_parent_mapping = {"self": (child_stem_start, child_stem_end),
-							                       "parent": (parent_stem_start, parent_stem_end)}
-				
-				if total_parent_mapping_prob > best_prob:
-					if total_parent_mapping_prob > 0.0:
-						best_prob = total_parent_mapping_prob
-						self.stem_map = best_parent_mapping
-						self.morph_bounds = {0, best_parent_mapping["self"][0], best_parent_mapping["self"][1], len(self.lemma)}
-						logger.debug("Dividing '%s-%s-%s'.\tp(stem) = %e, p(affix) = %e, p(word) = %e", *best_debug_info)
+						if word_prob > 0.0:
+							# Record the hypothesis if it is plausible.
+							hypotheses.append((word_prob, child_affix_prob, child_stem_prob, parent_prefix, parent_suffix, child_prefix, child_stem, child_suffix, child_stem_start, child_stem_end, parent_stem_start, parent_stem_end))
 		
-		if best_prob == -1.0:
+		
+		normalizer = 1 / sum([item[0] for item in hypotheses])
+		
+		for word_prob, child_affix_prob, child_stem_prob, parent_prefix, parent_suffix, child_prefix, child_stem, child_suffix, child_stem_start, child_stem_end, parent_stem_start, parent_stem_end in hypotheses:
+			new_tables.add_affix(parent_prefix, parent_suffix, child_prefix, child_suffix, word_prob * normalizer)
+		
+		# Record information about the best segmentation.
+		best_prob, child_affix_prob, child_stem_prob, parent_prefix, parent_suffix, child_prefix, child_stem, child_suffix, child_stem_start, child_stem_end, parent_stem_start, parent_stem_end = max(hypotheses)
+		best_prob = best_prob * normalizer
+		logger.debug("Dividing '%s-%s-%s'.\tp(stem) = %e, p(affix) = %e, p(word) = %e", child_prefix, child_stem, child_suffix, child_stem_prob, child_affix_prob, best_prob)
+		self.stem_map = {"self": (child_stem_start, child_stem_end),
+		                 "parent": (parent_stem_start, parent_stem_end)}
+		self.morph_bounds = {0, self.stem_map["self"][0], self.stem_map["self"][1], len(self.lemma)}
+		
+		if best_prob == 0.0:
 			logger.warn("No segmentation obtained for '%s'.", self.lemma)
-			best_prob = 0.0
 		
 		assert best_prob >= 0.0 and best_prob <= 1.0, "Best found p(%s) = %e is out of bounds." % (self.lemma, best_prob)
 		
