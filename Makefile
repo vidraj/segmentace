@@ -118,6 +118,7 @@ stats-corpus-%.txt: $(DATA_SOURCE)
 
 
 gold-predicted-derinet-$(DATE).txt: $(GOLD_STANDARD_DATA) $(DERINET) segment-by-derinet.py
+# 	sed -e 's/ //g' < "$<" | python3 -X tracemalloc ./segment-by-derinet.py -f spl -t hmorph "$(DERINET)" > "$@"
 	sed -e 's/ //g' < "$<" | "${PYTHON}" ./segment-by-derinet.py -f spl -t hmorph "$(DERINET)" > "$@"
 
 precision-recall-derinet-$(DATE).txt: gold-predicted-derinet-$(DATE).txt measure-precision-recall.py $(GOLD_STANDARD_DATA)

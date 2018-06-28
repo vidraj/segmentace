@@ -10,6 +10,7 @@ import lzma
 
 from lexeme import Lexeme
 from prob_tables import ProbTables
+#import tracemalloc
 
 # Load MorphoDiTa if available, otherwise fail silently.
 # MorphoDiTa availability must be tested anywhere it is used in the program!
@@ -212,6 +213,8 @@ class MorfFlexDatabase:
 
 class Segmentace:
 	def __init__(self, derinet_file_name, morfflex_file_name, morpho_file_name, em_threshold):
+		#tracemalloc.start()
+		
 		logger.info("Loading derivations.")
 		derinet_db = DeriNetDatabase(derinet_file_name)
 		logger.info("Derivations loaded.")
@@ -287,7 +290,18 @@ class Segmentace:
 			print(initial_tables, file=f)
 		
 		tables = initial_tables
+		##memory_snapshot_pre = tracemalloc.take_snapshot()
+		#new_tables = ProbTables(affix_default=0.0, change_default=0.001)
+		#score = self.estimate_all_probabilities(db, tables, new_tables)
+		#new_tables.finalize()
+		##memory_snapshot_post = tracemalloc.take_snapshot()
+		#logger.info("Memory test EM Loop finished with score %.2f, prob %.2f %%.", score, (100.0 * score / len(db)))
 		
+		##top_stats = memory_snapshot_post.compare_to(memory_snapshot_pre, 'lineno')
+		##print("[ Top 10 memory allocation differences ]")
+		##for stat in top_stats[:10]:
+			##print(stat)
+
 		for i, smoothing_strength in enumerate(pretrain_smoothing):
 			new_tables = ProbTables(change_default=smoothing_strength)
 			
