@@ -221,8 +221,14 @@ class MorfFlexDatabase:
 
 
 class Segmentace:
-	def __init__(self, derinet_file_name, morfflex_file_name, morpho_file_name, em_threshold):
+	def __init__(self, args):
 		#tracemalloc.start()
+		
+		derinet_file_name = args.derinet
+		morfflex_file_name = args.morfflex
+		morpho_file_name = args.analyzer
+		em_threshold = args.em_threshold
+		tables_save_file_name = args.save
 		
 		logger.info("Loading derivations.")
 		derinet_db = DeriNetDatabase(derinet_file_name)
@@ -236,18 +242,34 @@ class Segmentace:
 			logger.info("Not loading inflections.")
 			db = derinet_db
 		
-		logger.info("Detecting stem bounds step 1: Simple detection.")
-		tables = ProbTables(0.0, 0.1)
-		for node in db.iter():
-			node.count_stems_simple(tables)
-		#tables.normalize_affix_counts() # Don't use tables.finalize() here, because there are no changes.
-		tables.finalize()
 		
-		logger.info("Detecting stem bounds step 2: Probabilistic detection.")
-		# TODO this step is both expectation and maximization.
-		self.em_loop(db, tables, em_threshold)
-		
-		logger.info("Stem bounds detected.")
+		if args.load is None:
+			# Train a new model.
+			logger.info("Detecting stem bounds step 1: Simple detection.")
+			tables = ProbTables(0.0, 0.1)
+			for node in db.iter():
+				node.count_stems_simple(tables)
+			#tables.normalize_affix_counts() # Don't use tables.finalize() here, because there are no changes.
+			tables.finalize()
+			
+			if tables_save_file_name is not None:
+				with open(tables_save_file_name + "-0-init.p", "wb") as f:
+					tables.save(f)
+			
+			logger.info("Detecting stem bounds step 2: Probabilistic detection.")
+			# TODO this step is both expectation and maximization.
+			self.em_loop(db, tables, em_threshold, tables_save_file_name)
+			
+			logger.info("Stem bounds detected.")
+		else:
+			# Load an existing model.
+			logger.info("Loading the stemming model.")
+			with open(args.load, "rb") as f:
+				tables = ProbTables.load(f)
+			
+			# Run the estimation step to get a segmentation of the database.
+			self.estimate_all_probabilities(db, tables, ProbTables(affix_default=0.0, change_default=0.0))
+
 		logger.info("Propagating morph bounds.")
 		
 		for root in db.iter_trees():
@@ -290,13 +312,10 @@ class Segmentace:
 			score += new_score
 		return score
 	
-	def em_loop(self, db, initial_tables, em_threshold):
+	def em_loop(self, db, initial_tables, em_threshold, tables_save_file_name):
 		"""Expectation-Maximization loop over stem and affix probabilities."""
 		max_iter = 3 # TODO
 		pretrain_smoothing = [0.1, 0.001]
-		
-		with open("prob-tables-0-init.txt", "wt") as f:
-			print(initial_tables, file=f)
 		
 		tables = initial_tables
 		##memory_snapshot_pre = tracemalloc.take_snapshot()
@@ -319,8 +338,9 @@ class Segmentace:
 			new_tables.finalize()
 			tables = new_tables
 			
-			with open("prob-tables-{}-pretrain.txt".format(i + 1), "wt") as f:
-				print(new_tables, file=f)
+			if tables_save_file_name is not None:
+				with open(tables_save_file_name + "-{}-pretrain.p".format(i + 1), "wb") as f:
+					tables.save(f)
 			
 			logger.info("Pretrain EM Loop finished with score %.2f, prob %.2f %%.", score, (100.0 * score / len(db)))
 		
@@ -340,8 +360,9 @@ class Segmentace:
 			new_tables.finalize()
 			tables = new_tables
 			
-			with open("prob-tables-{}-train.txt".format(i + len(pretrain_smoothing) + 1), "wt") as f:
-				print(new_tables, file=f)
+			if tables_save_file_name is not None:
+				with open(tables_save_file_name + "-{}-train.p".format(i + len(pretrain_smoothing) + 1), "wb") as f:
+					tables.save(f)
 			
 			logger.info("EM Loop finished with score %.2f, prob %.2f %%.", score, (100.0 * score / len(db)))
 	

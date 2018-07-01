@@ -1,4 +1,7 @@
 from collections import defaultdict
+
+import pickle
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,6 +23,14 @@ class ProbTables:
 		self.change_insertions = 0
 		self.change_deletions = 0
 		self.change_substitutions = 0
+	
+	def save(self, f):
+		pickle.dump(self, f, protocol=pickle.DEFAULT_PROTOCOL, fix_imports=False)
+	
+	def load(f):
+		self = pickle.load(f, fix_imports=False)
+		return self
+	
 	
 	def __str__(self):
 		return "Affix counts: {}, affix probs: {}, affix_default_count: {}, change_counts: {}, change_probs: {}, change_default: {}, change_sub_default: {}, change_ins_default: {}, change_del_default: {}, change_insertions: {}, change_deletions: {}, change_substitutions: {}".format(str(self.affix_counts), str(self.affix_probs), str(self.affix_default_count), str(self.change_counts), str(self.change_probs), str(self.change_default), str(self.change_sub_default), str(self.change_ins_default), str(self.change_del_default), str(self.change_insertions), str(self.change_deletions), str(self.change_substitutions))

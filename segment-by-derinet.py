@@ -15,6 +15,8 @@ def parse_args():
 	
 	parser.add_argument("derinet", metavar="DERINET.tsv.gz", help="a path to the compressed DeriNet dictionary.")
 	#parser.add_argument("morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary.")
+	parser.add_argument("-l", "--load", metavar="TABLES", help="a path to the tables previously saved using the Save command.")
+	parser.add_argument("-s", "--save", metavar="TABLES", help="a path used to save the internal probability tables for future reuse.")
 	parser.add_argument("-a", "--analyzer", metavar="DICTIONARY.tagger", help="a path to the MorphoDiTa tagger data. When used, will lemmatize the input data before segmenting, thus supporting segmentation of inflected forms.")
 	parser.add_argument("-m", "--morfflex", metavar="MORFFLEX.tab.csv.xz", help="a path to the compressed MorfFlex dictionary. When used, will enrich the dictionary with forms in addition to lemmas, thus supporting segmentation of inflected forms. Beware, this makes the program very memory intensive.")
 	parser.add_argument("-f", "--from", metavar="FORMAT", dest="from_format", help="the format to read. Available: vbpe, hbpe, spl, hmorph. Default: spl.", default="spl", choices=["vbpe", "hbpe", "spl", "hmorph"])
@@ -60,11 +62,7 @@ if __name__ == '__main__':
 	
 	args = parse_args()
 	
-	derinet_file_name = args.derinet
-	morfflex_file_name = args.morfflex
-	morpho_file_name = args.analyzer
-	
-	segmenter = Segmentace(derinet_file_name, morfflex_file_name, morpho_file_name, args.em_threshold)
+	segmenter = Segmentace(args)
 	
 	logger.info("Ready to split STDIN.")
 	
