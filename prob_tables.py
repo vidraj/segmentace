@@ -62,54 +62,34 @@ class ProbTables:
 		                     "ins": {},
 		                     "del": {}}
 		
-		changes_total = self.change_insertions + self.change_deletions + self.change_substitutions
-		if changes_total > 0:
-			# There are some recorded changes. Normalize them. (Otherwise do nothing to prevent division-by-zero errors.
-			
-			# Normalize substitutions.
-			substitution_prevalence = self.change_substitutions / changes_total
-			for f, options in self.change_counts["sub"].items():
-				normalizer_nominator = sum(options.values())
-				if normalizer_nominator <= 0.0:
-					# Prevent a divide-by-zero.
-					# Skip the update here, effectively resetting all transforms from f
-					#  to the default (smoothed) value.
-					# TODO this may not be exactly what we want.
-					logger.warn("Normalizer nominator of '%s' is %f.", f, normalizer_nominator)
-					continue
-				normalizer = substitution_prevalence / normalizer_nominator
-				#logger.debug("Normalizer for {} is {}.".format(f, normalizer))
-				self.change_probs["sub"][f] = {t: count * normalizer for t, count in options.items()}
-			
-			
-			insertion_sum = sum(self.change_counts["ins"].values())
-			if insertion_sum != 0.0:
-				# Normalize insertions.
-				insertion_normalizer = self.change_insertions / (changes_total * insertion_sum)
-				self.change_probs["ins"] = {t: count * insertion_normalizer for t, count in self.change_counts["ins"].items()}
-			else:
-				logger.warn("No insertions.")
-				self.change_probs["ins"] = {}
-			
-			
-			deletion_sum = sum(self.change_counts["del"].values())
-			if deletion_sum != 0.0:
-				# Normalize deletions.
-				deletion_normalizer = self.change_deletions / (changes_total * deletion_sum)
-				self.change_probs["del"] = {f: count * deletion_normalizer for f, count in self.change_counts["del"].items()}
-			else:
-				logger.warn("No deletions.")
-				self.change_probs["del"] = {}
+		change_insertions_smooth = self.change_insertions + (len(self.change_counts["ins"]) + 1) * self.change_default
+		change_deletions_smooth = self.change_deletions + (len(self.change_counts["del"]) + 1) * self.change_default
+		change_substitutions_smooth = self.change_substitutions + (sum(len(d) for d in self.change_counts["sub"].values()) + 1) * self.change_default
+		changes_total = change_insertions_smooth + change_deletions_smooth + change_substitutions_smooth
 		
-			# TODO normalize the defaults as well.
-			self.change_sub_default = self.change_default * self.change_substitutions / changes_total
-			self.change_ins_default = self.change_default * self.change_insertions / changes_total
-			self.change_del_default = self.change_default * self.change_deletions / changes_total
-		else:
-			# No changes were recorded, the normalizers are unknown. Take the default at its face value.
-			self.change_sub_default = self.change_default
-			self.change_ins_default = self.change_default
-			self.change_del_default = self.change_default
+		if self.change_insertions > 0.0:
+			# Normalize insertions.
+			insertion_normalizer = 1.0 / changes_total
+			self.change_probs["ins"] = {t: (count + self.change_default) * insertion_normalizer for t, count in self.change_counts["ins"].items()}
+		
+		if self.change_deletions > 0.0:
+			# Normalize deletions.
+			for f, count in self.change_counts["del"].items():
+				#deletion_normalizer = 1.0 / (count + sum(self.change_counts["sub"][f].values()) + self.change_insertions)
+				deletion_normalizer = 1.0 / changes_total # TODO
+				self.change_probs["del"][f] = (count + self.change_default) * deletion_normalizer
+		
+		if self.change_substitutions > 0.0:
+			# Normalize substitutions.
+			for f, to_dict in self.change_counts["sub"].items():
+				#substitution_normalizer = 1.0 / (sum(self.change_counts["sub"][f].values()) + self.change_counts["del"][f] + self.change_substitutions)
+				substitution_normalizer = 1.0 / changes_total # TODO
+				self.change_probs["sub"][f] = {t: (count + self.change_default) * substitution_normalizer for t, count in to_dict.items()}
+		
+		# Normalize the default values in the proportion the different types were encountered.
+		self.change_ins_default = self.change_default * change_insertions_smooth / (changes_total * changes_total)
+		self.change_del_default = self.change_default * change_deletions_smooth / (changes_total * changes_total)
+		self.change_sub_default = self.change_default * change_substitutions_smooth / (changes_total * changes_total)
 	
 	
 	def normalize_affix_counts(self):
