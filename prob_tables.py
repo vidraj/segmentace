@@ -121,16 +121,16 @@ class ProbTables:
 		#self.affix_probs = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: default))))
 		self.affix_probs = {}
 		
-		with open("table-normalization", "wt") as f:
-			for pprefix, d1 in self.affix_counts.items():
-				for psuffix, d2 in d1.items():
-					for cprefix, d3 in d2.items():
-						for csuffix, count in d3.items():
-							normalized_count = (count + self.affix_default_count) * normalizer
-							# Not a defaultdict, see above.
-							#self.affix_probs[pprefix][psuffix][cprefix][csuffix] = normalized_count
-							self.affix_probs.setdefault(pprefix, {}).setdefault(psuffix, {}).setdefault(cprefix, {})[csuffix] = normalized_count
-							print("{}\t{}\t{}\t{}\t{} -> {}".format(pprefix, psuffix, cprefix, csuffix, count, normalized_count), file=f)
+		#with open("table-normalization", "wt") as f:
+		for pprefix, d1 in self.affix_counts.items():
+			for psuffix, d2 in d1.items():
+				for cprefix, d3 in d2.items():
+					for csuffix, count in d3.items():
+						normalized_count = (count + self.affix_default_count) * normalizer
+						# Not a defaultdict, see above.
+						#self.affix_probs[pprefix][psuffix][cprefix][csuffix] = normalized_count
+						self.affix_probs.setdefault(pprefix, {}).setdefault(psuffix, {}).setdefault(cprefix, {})[csuffix] = normalized_count
+						#print("{}\t{}\t{}\t{}\t{} -> {}".format(pprefix, psuffix, cprefix, csuffix, count, normalized_count), file=f)
 
 	def get_change_prob(self, f, t):
 		if f:
