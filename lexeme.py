@@ -75,13 +75,13 @@ def extend_hypotheses(tables, hypotheses, f, t):
 	
 	# Extend the existing hypothesis with the change.
 	if t == "":
-		# Deletion. Check that it is allowed.
-		return tuple((prob * change_prob, del_allowed, changes + (change, )) for prob, del_allowed, changes in hypotheses if del_allowed)
-	elif f == "":
-		# Insertion. Disallow deletion in the next step.
+		# Deletion. Disallow insertion in the next step.
 		return tuple((prob * change_prob, False, changes + (change, )) for prob, _, changes in hypotheses)
+	elif f == "":
+		# Insertion. Check that it is allowed.
+		return tuple((prob * change_prob, ins_allowed, changes + (change, )) for prob, ins_allowed, changes in hypotheses if ins_allowed)
 	else:
-		# Substitution. Allow deletion in the next step.
+		# Substitution. Allow insertion in the next step.
 		return tuple((prob * change_prob, True, changes + (change, )) for prob, _, changes in hypotheses)
 
 def generate_string_mapping_hypotheses(tables, parent_stem, child_stem, hypothesis, allowed_map_types):
@@ -258,8 +258,10 @@ def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 	# TODO normalize probs before updating the counts.
 	#  We assume that there has to be a mapping from parent_stem to child_stem with a probability of prob_modifier.
 	#   FIXME is this correct? Shouldn't we normalize the prob_modifier somewhere first? Across all possible segmentations of a single word? Across all parent segmentation choices? Etc.
-	normalizer = prob_modifier / sum([prob for prob, del_allowed, hypothesis in prev_line[-1]])
-	for prob, del_allowed, hypothesis in prev_line[-1]:
+	normalizer = sum([prob for prob, ins_allowed, hypothesis in prev_line[-1]])
+	assert normalizer > 0.0, "Normalizer is zero for '{}' and '{}'. The result item is {}".format(parent_stem, child_stem, repr(prev_line[-1]))
+	normalizer = prob_modifier / normalizer
+	for prob, ins_allowed, hypothesis in prev_line[-1]:
 		#print("Obtained hypothesis with prob {}:".format(prob), hypothesis)
 		modified_prob = prob * normalizer
 		total_prob += prob
