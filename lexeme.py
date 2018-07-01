@@ -362,6 +362,9 @@ class Lexeme:
 			if self.stem_map is None:
 				pprefix, pstem, psuffix, sprefix, sstem, ssuffix = self.find_stem_map_simple()
 				tables.add_affix(pprefix, psuffix, sprefix, ssuffix, 1.0)
+				#assert pstem == sstem, "The stems found by string comparison don't match: '{}' and '{}'".format(pstem, sstem) # This assert is wrong, we ignore case, making them unequal.
+				for char in pstem:
+					tables.add_change(char, char, 1.0)
 			else:
 				logger.warn("Stem map of lexeme '%s' has already been filled in.", self.lemma)
 	
