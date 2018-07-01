@@ -117,11 +117,11 @@ stats-corpus-%.txt: $(DATA_SOURCE)
 	zcat $(TRAIN_CORPUS-$*) | ./segmentation-statistics.py -f spl > "$@"
 
 
-gold-predicted-derinet-$(DATE).txt: $(GOLD_STANDARD_DATA) $(DERINET) segment-by-derinet.py
+gold-predicted-derinet-%.txt: $(GOLD_STANDARD_DATA) $(DERINET) segment-by-derinet.py
 # 	sed -e 's/ //g' < "$<" | python3 -X tracemalloc ./segment-by-derinet.py -f spl -t hmorph "$(DERINET)" > "$@"
-	sed -e 's/ //g' < "$<" | "${PYTHON}" ./segment-by-derinet.py -f spl -t hmorph --save "prob-tables-$(DATE)" "$(DERINET)" > "$@"
+	sed -e 's/ //g' < "$<" | "${PYTHON}" ./segment-by-derinet.py -f spl -t hmorph --save "prob-tables-$*" "$(DERINET)" > "$@"
 
-precision-recall-derinet-$(DATE).txt: gold-predicted-derinet-$(DATE).txt measure-precision-recall.py $(GOLD_STANDARD_DATA)
+precision-recall-derinet-%.txt: gold-predicted-derinet-%.txt measure-precision-recall.py $(GOLD_STANDARD_DATA)
 	echo -n 'Stats measured on $(GOLD_STANDARD_DATA) on ' > "$@"
 	date >> "$@"
 	"${PYTHON}" ./measure-precision-recall.py -f hmorph "$(GOLD_STANDARD_DATA)" < "$<" >> "$@"
