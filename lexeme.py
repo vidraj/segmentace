@@ -245,7 +245,7 @@ def map_strings(tables, parent_stem, child_stem, new_tables, prob_modifier):
 			hypotheses = (extend_hypotheses(tables, prev_line[j - 1], parent_stem[i - 1], child_stem[j - 1])
 			            + extend_hypotheses(tables, cur_line[j - 1],  "",                 child_stem[j - 1])
 			            + extend_hypotheses(tables, prev_line[j],     parent_stem[i - 1], ""))
-			cur_line[j] = sorted(hypotheses)[:n_best_limit]
+			cur_line[j] = sorted(hypotheses, reverse=True)[:n_best_limit]
 		
 		# Swap the lines (the filled-in cur_line will be overwritten in the next iteration).
 		tmp = prev_line
