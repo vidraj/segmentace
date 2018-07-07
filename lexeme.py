@@ -365,7 +365,7 @@ class Lexeme:
 				pprefix, pstem, psuffix, sprefix, sstem, ssuffix = self.find_stem_map_simple()
 				tables.add_affix(pprefix, psuffix, sprefix, ssuffix, 1.0)
 				#assert pstem == sstem, "The stems found by string comparison don't match: '{}' and '{}'".format(pstem, sstem) # This assert is wrong, we ignore case, making them unequal.
-				for char in pstem:
+				for char in pstem.lower():
 					tables.add_change(char, char, 1.0)
 			else:
 				logger.warn("Stem map of lexeme '%s' has already been filled in.", self.lemma)
@@ -395,7 +395,7 @@ class Lexeme:
 							# Don't perform the computationally expensive stem mapping, if the word probability will be 0 anyway.
 							continue
 						
-						child_stem_prob = map_strings(tables, parent_stem, child_stem, new_tables, child_affix_prob)
+						child_stem_prob = map_strings(tables, parent_stem.lower(), child_stem.lower(), new_tables, child_affix_prob)
 						
 						# FIXME right now, the probability is p(seen prefix) * p(stem maps to parent) * p(seen suffix). This is imbalanced and leads to spurious splits (esp. spurious prefixes).
 						#  Solution: probability should be p(seen prefix) * p(seen stem) * p(seen suffix) * p(prefix does not map to parent) * p(stem maps to parent) * p(suffix does not map to parent)
